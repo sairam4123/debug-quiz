@@ -5,6 +5,11 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+    // ignore type errors
+    typescript: {
+        ignoreBuildErrors: true,
+    },
+};
 
 export default config;

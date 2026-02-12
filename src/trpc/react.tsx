@@ -9,7 +9,6 @@ import SuperJSON from "superjson";
 
 import { type AppRouter } from "@mce-quiz/server/api/root";
 import { createQueryClient } from "./query-client";
-import { env } from "@mce-quiz/env";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
