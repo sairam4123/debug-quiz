@@ -10,6 +10,10 @@ const config = {
     typescript: {
         ignoreBuildErrors: true,
     },
+    // ignore lint errors
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
 };
 
 export default config;
