@@ -247,10 +247,14 @@ export const quizRouter = createTRPCRouter({
                         break; // Let client reconnect
                     }
 
-                    // Wait for either: EventEmitter event OR timeout (DB poll interval)
+                    // Wait for either: EventEmitter event OR next aligned poll slot
+                    // Align to wall-clock boundaries so ALL connections poll at the same time
+                    // e.g., with 5s interval: all poll at t=0, t=5000, t=10000... (epoch ms)
+                    const now = Date.now();
+                    const msUntilNextSlot = DB_POLL_INTERVAL - (now % DB_POLL_INTERVAL);
                     await new Promise<void>((resolve) => {
                         resolveWait = resolve;
-                        setTimeout(resolve, DB_POLL_INTERVAL);
+                        setTimeout(resolve, msUntilNextSlot);
                     });
 
                     // Fetch fresh state from DB

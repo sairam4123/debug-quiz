@@ -228,23 +228,43 @@ export default function PlayPage() {
         }
     );
 
-    // --- Polling fallback: always-on safety net at 10s intervals ---
-    // On Vercel, SSE can be unreliable due to serverless architecture.
-    // This ensures clients always catch up within 10s.
-    const { data: polledState } = api.quiz.getGameState.useQuery(
+    // --- Synchronized polling: all clients poll at the same wall-clock moments ---
+    // Uses wall-clock alignment so ALL clients fetch at the same absolute times
+    // (e.g., every 10s boundary: t=0, t=10000, t=20000 ms since epoch).
+    // This prevents any client from getting question updates earlier than others.
+    const POLL_INTERVAL = 10000; // 10s — conservative for Vercel limits
+    const pollQuery = api.quiz.getGameState.useQuery(
         { playerId: playerId || "" },
         {
             enabled: !!playerId && gameStatus !== "ENDED",
-            refetchInterval: 10000, // 10s — conservative to stay within Vercel limits
+            refetchInterval: false, // We manage refetch manually below
         }
     );
 
+    useEffect(() => {
+        if (!playerId || gameStatus === "ENDED") return;
+
+        let timerId: ReturnType<typeof setTimeout>;
+
+        const scheduleAlignedPoll = () => {
+            const now = Date.now();
+            const delay = POLL_INTERVAL - (now % POLL_INTERVAL);
+            timerId = setTimeout(() => {
+                pollQuery.refetch();
+                scheduleAlignedPoll(); // schedule next aligned slot
+            }, delay);
+        };
+
+        scheduleAlignedPoll();
+        return () => clearTimeout(timerId);
+    }, [playerId, gameStatus]);
+
     // Sync from polling fallback
     useEffect(() => {
-        if (polledState) {
-            syncGameState(polledState as GameState);
+        if (pollQuery.data) {
+            syncGameState(pollQuery.data as GameState);
         }
-    }, [polledState, syncGameState]);
+    }, [pollQuery.data, syncGameState]);
 
     // --- Splash screen auto-dismiss ---
     useEffect(() => {
