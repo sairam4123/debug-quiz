@@ -1,0 +1,23 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "rtl": false,
+  "aliases": {
+    "components": "@mce-quiz/components",
+    "utils": "@mce-quiz/lib/utils",
+    "ui": "@mce-quiz/components/ui",
+    "lib": "@mce-quiz/lib",
+    "hooks": "@mce-quiz/hooks"
+  },
+  "registries": {}
+}

@@ -11,7 +11,7 @@ generator client {
 // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -38,6 +38,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   posts         Post[]
+  quizzes       Quiz[]
 
   @@unique([email])
   @@map("user")
@@ -86,4 +87,125 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+// --- Quiz App Models ---
+
+model Quiz {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  questions Question[]
+  sessions  GameSession[]
+
+  @@map("quiz")
+}
+
+enum QuestionType {
+  PROGRAM_OUTPUT
+  CODE_CORRECTION
+  KNOWLEDGE
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  text        String
+  type        QuestionType
+  category    String?
+  codeSnippet String? //@db.Text
+  timeLimit   Int          @default(30) // in seconds
+
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizId String
+
+  options Option[]
+  answers Answer[]
+
+  order        Int           @default(0)
+  gameSessions GameSession[]
+
+  @@index([quizId])
+  @@map("question")
+}
+
+model Option {
+  id        String  @id @default(cuid())
+  text      String
+  isCorrect Boolean @default(false)
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+
+  @@index([questionId])
+  @@map("option")
+}
+
+enum GameStatus {
+  WAITING
+  ACTIVE
+  ENDED
+}
+
+model GameSession {
+  id        String     @id @default(cuid())
+  code      String     @unique // 6-digit join code
+  status    GameStatus @default(WAITING)
+  startTime DateTime?
+  endTime   DateTime?
+
+  quiz   Quiz   @relation(fields: [quizId], references: [id])
+  quizId String
+
+  players Player[]
+
+  currentQuestion   Question? @relation(fields: [currentQuestionId], references: [id])
+  currentQuestionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quizId])
+  @@map("game_session")
+}
+
+model Player {
+  id    String @id @default(cuid())
+  name  String
+  score Int    @default(0)
+
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+
+  answers Answer[]
+
+  joinedAt DateTime @default(now())
+
+  @@unique([sessionId, name]) // Unique name per session
+  @@map("player")
+}
+
+model Answer {
+  id String @id @default(cuid())
+
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId String
+
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String
+
+  selectedOptionId String? // Null if timeout or text input? assuming multiple choice for now
+  isCorrect        Boolean
+  timeTaken        Int // in milliseconds
+
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+  @@index([questionId])
+  @@map("answer")
 }
