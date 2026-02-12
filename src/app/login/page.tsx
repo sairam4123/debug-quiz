@@ -37,10 +37,10 @@ export default function LoginPage() {
     return (
         <div className="flex min-h-screen">
             {/* Left branded panel — hidden on mobile */}
-            <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-gradient-to-br from-[#1a2463] to-[#28388D] p-12 text-white relative overflow-hidden">
+            <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-gradient-to-br from-[#0d4a4a] to-[#0891b2] p-12 text-white relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-[20%] left-[10%] w-64 h-64 rounded-full bg-white/20 blur-3xl" />
-                    <div className="absolute bottom-[10%] right-[10%] w-80 h-80 rounded-full bg-white/10 blur-3xl" />
+                    <div className="absolute bottom-[10%] right-[10%] w-80 h-80 rounded-full bg-cyan-300/20 blur-3xl" />
                 </div>
                 <div className="relative z-10">
                     <Link href="/" className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-12">
@@ -66,17 +66,23 @@ export default function LoginPage() {
             </div>
 
             {/* Right form panel */}
-            <div className="flex-1 flex items-center justify-center p-6">
-                <div className="w-full max-w-md space-y-6">
+            <div className="flex-1 flex items-center justify-center p-6 relative">
+                {/* Decorative background */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute -top-32 -right-32 w-72 h-72 rounded-full bg-teal-500/5 blur-3xl" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-cyan-500/5 blur-3xl" />
+                </div>
+
+                <div className="w-full max-w-md space-y-6 relative z-10">
                     {/* Mobile back link */}
                     <Link href="/" className="lg:hidden flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
                         <ArrowLeft className="h-4 w-4" />
                         <span className="text-sm">Back to home</span>
                     </Link>
 
-                    <Card className="border-border/50">
+                    <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
                         <CardHeader className="space-y-1">
-                            <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+                            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400 bg-clip-text text-transparent">Sign in</CardTitle>
                             <CardDescription>Enter your credentials to access the admin panel</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -99,7 +105,11 @@ export default function LoginPage() {
                                     className="h-11"
                                 />
                             </div>
-                            <Button className="w-full h-11 font-semibold" onClick={handleEmailSignIn} disabled={isLoading}>
+                            <Button
+                                className="w-full h-11 font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/15 border-0"
+                                onClick={handleEmailSignIn}
+                                disabled={isLoading}
+                            >
                                 {isLoading ? (
                                     <>
                                         <Spinner className="mr-2" size="sm" /> Signing in...
@@ -112,7 +122,7 @@ export default function LoginPage() {
                         <CardFooter className="flex justify-center">
                             <p className="text-sm text-muted-foreground">
                                 Don't have an account?{" "}
-                                <Link href="/signup" className="text-primary font-medium hover:underline">
+                                <Link href="/signup" className="text-teal-600 dark:text-teal-400 font-medium hover:underline">
                                     Sign up
                                 </Link>
                             </p>
