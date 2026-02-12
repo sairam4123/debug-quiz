@@ -19,19 +19,23 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
         const headers = [
             "text",
             "type", // KNOWLEDGE, PROGRAM_OUTPUT, CODE_CORRECTION
+            "codeSnippet", // Code snippet (for PROGRAM_OUTPUT / CODE_CORRECTION)
+            "language", // python, javascript, etc.
             "timeLimit",
             "baseScore",
             "option1",
             "option2",
             "option3",
             "option4",
-            "correctOption" // 1, 2, 3, or 4
+            "correctOption" // 1, 2, 3, or 4 — use semicolons for multiple: "1;3"
         ];
 
         const sampleData = [
             [
                 "Which primitive type represents a logical entity?",
                 "KNOWLEDGE",
+                "", // no code snippet for KNOWLEDGE
+                "", // no language
                 "10",
                 "1000",
                 "string",
@@ -39,6 +43,45 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
                 "number",
                 "undefined",
                 "2"
+            ],
+            [
+                "What is the output of this program?",
+                "PROGRAM_OUTPUT",
+                "x = [1, 2, 3]\nprint(x[::-1])",
+                "python",
+                "15",
+                "1000",
+                "[3, 2, 1]",
+                "[1, 2, 3]",
+                "[1, 3, 2]",
+                "Error",
+                "1"
+            ],
+            [
+                "Find and fix the bug in this code",
+                "CODE_CORRECTION",
+                "function greet(name) {\n  console.log('Hello ' + Name);\n}",
+                "javascript",
+                "20",
+                "1000",
+                "Change Name to name",
+                "Add return statement",
+                "Add semicolon after function",
+                "Change console.log to print",
+                "1"
+            ],
+            [
+                "Which of the following are valid Python data types?",
+                "KNOWLEDGE",
+                "",
+                "",
+                "15",
+                "1000",
+                "int",
+                "float",
+                "char",
+                "str",
+                "1;2;4" // Multiple correct: int, float, str
             ]
         ];
 
@@ -48,15 +91,17 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
         // Add column widths
         const sheet = ws as any;
         sheet['!cols'] = [
-            { wch: 40 }, // text
-            { wch: 15 }, // type
+            { wch: 45 }, // text
+            { wch: 18 }, // type
+            { wch: 40 }, // codeSnippet
+            { wch: 12 }, // language
             { wch: 10 }, // timeLimit
             { wch: 10 }, // baseScore
-            { wch: 20 }, // opt1
-            { wch: 20 }, // opt2
-            { wch: 20 }, // opt3
-            { wch: 20 }, // opt4
-            { wch: 10 }, // correct
+            { wch: 25 }, // opt1
+            { wch: 25 }, // opt2
+            { wch: 25 }, // opt3
+            { wch: 25 }, // opt4
+            { wch: 12 }, // correct
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -85,12 +130,17 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
                 }
 
                 const parsedQuestions: QuestionData[] = data.map((row: any) => {
-                    // Basic validation and mapping
+                    // Parse correctOption — supports single ("2") or multiple ("1;3")
+                    const correctStr = row.correctOption?.toString() || "";
+                    const correctSet = new Set(
+                        correctStr.split(";").map((s: string) => s.trim()).filter(Boolean)
+                    );
+
                     const options = [
-                        { text: row.option1?.toString() || "", isCorrect: row.correctOption == 1 },
-                        { text: row.option2?.toString() || "", isCorrect: row.correctOption == 2 },
-                        { text: row.option3?.toString() || "", isCorrect: row.correctOption == 3 },
-                        { text: row.option4?.toString() || "", isCorrect: row.correctOption == 4 },
+                        { text: row.option1?.toString() || "", isCorrect: correctSet.has("1") },
+                        { text: row.option2?.toString() || "", isCorrect: correctSet.has("2") },
+                        { text: row.option3?.toString() || "", isCorrect: correctSet.has("3") },
+                        { text: row.option4?.toString() || "", isCorrect: correctSet.has("4") },
                     ].filter(opt => opt.text.trim() !== ""); // Filter out empty options if any
 
                     // Fallback defaults
@@ -98,9 +148,15 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
                         ? row.type
                         : "KNOWLEDGE";
 
+                    // Parse code snippet and language
+                    const codeSnippet = row.codeSnippet?.toString().trim() || undefined;
+                    const language = row.language?.toString().trim().toLowerCase() || undefined;
+
                     return {
                         text: row.text || "Untitled Question",
                         type: type as any,
+                        codeSnippet,
+                        language,
                         timeLimit: parseInt(row.timeLimit || "10"),
                         baseScore: parseInt(row.baseScore || "1000"),
                         options: options.length >= 2 ? options : [
