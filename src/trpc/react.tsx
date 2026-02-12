@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { createWSClient, httpBatchStreamLink, loggerLink, splitLink, wsLink } from "@trpc/client";
+import { httpBatchStreamLink, loggerLink, splitLink, unstable_httpSubscriptionLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
@@ -52,9 +52,9 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         }),
         splitLink({
           condition: (op) => op.type === "subscription",
-          true: wsLink({
-            client: createWSClientImpl(),
+          true: unstable_httpSubscriptionLink({
             transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
           }),
           false: httpBatchStreamLink({
             transformer: SuperJSON,
@@ -85,29 +85,4 @@ function getBaseUrl() {
   return `http://localhost:${process.env.PORT ?? 3000}`;
 }
 
-function getWsUrl() {
-  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
-  if (typeof window !== "undefined") {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.hostname}:3001`; // Default to 3001 in dev
-  }
-  return "ws://localhost:3001";
-}
 
-function createWSClientImpl() {
-  if (typeof window === "undefined") {
-    // Return a dummy client for server-side
-    return {
-      request: () => {
-        return {
-          subscribe: () => ({ unsubscribe: () => undefined }),
-        };
-      },
-      close: () => undefined,
-    } as any;
-  }
-
-  return createWSClient({
-    url: getWsUrl(),
-  });
-}

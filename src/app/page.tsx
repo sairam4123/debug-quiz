@@ -1,103 +1,73 @@
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Zap, ShieldCheck, Trophy, ArrowRight, Code2 } from "lucide-react";
 
-import { LatestPost } from "@mce-quiz/app/_components/post";
-import { auth } from "@mce-quiz/server/better-auth";
-import { getSession } from "@mce-quiz/server/better-auth/server";
-import { api, HydrateClient } from "@mce-quiz/trpc/server";
-
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-  const session = await getSession();
-
-  if (session) {
-    void api.post.getLatest.prefetch();
-  }
-
+export default function Home() {
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-          </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
+    <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-primary/8 blur-3xl" />
+      </div>
 
-            <div className="flex flex-col items-center justify-center gap-4">
-              <p className="text-center text-2xl text-white">
-                {session && <span>Logged in as {session.user?.name}</span>}
-              </p>
-              {!session ? (
-                <form>
-                  <button
-                    className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-                    formAction={async () => {
-                      "use server";
-                      const res = await auth.api.signInSocial({
-                        body: {
-                          provider: "github",
-                          callbackURL: "/",
-                        },
-                      });
-                      if (!res.url) {
-                        throw new Error("No URL returned from signInSocial");
-                      }
-                      redirect(res.url);
-                    }}
-                  >
-                    Sign in with Github
-                  </button>
-                </form>
-              ) : (
-                <form>
-                  <button
-                    className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-                    formAction={async () => {
-                      "use server";
-                      await auth.api.signOut({
-                        headers: await headers(),
-                      });
-                      redirect("/");
-                    }}
-                  >
-                    Sign out
-                  </button>
-                </form>
-              )}
-            </div>
+      {/* Hero content */}
+      <div className="relative z-10 flex flex-col items-center gap-8 px-4 text-center max-w-2xl">
+        {/* Logo mark */}
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+            <Code2 className="h-8 w-8 text-primary" />
           </div>
-
-          {session?.user && <LatestPost />}
+          <span className="text-sm font-semibold tracking-widest uppercase text-muted-foreground">
+            MCE Quiz Platform
+          </span>
         </div>
-      </main>
-    </HydrateClient>
+
+        {/* Main headline */}
+        <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-[1.1]">
+          <span className="text-gradient">Debug</span>{" "}
+          <span className="text-foreground">Quiz</span>
+        </h1>
+
+        <p className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed">
+          Real-time code debugging quizzes for classrooms.
+          Compete, learn, and climb the leaderboard.
+        </p>
+
+        {/* CTA buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto">
+          <Link
+            href="/play"
+            className="group relative inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(40,56,141,0.4)]"
+          >
+            <Zap className="h-5 w-5" />
+            Join a Game
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-8 py-4 text-lg font-semibold text-foreground transition-all duration-200 hover:bg-accent hover:border-primary/30"
+          >
+            Admin Login
+          </Link>
+        </div>
+      </div>
+
+      {/* Feature pills */}
+      <div className="relative z-10 mt-16 flex flex-wrap items-center justify-center gap-4 px-4">
+        {[
+          { icon: Zap, label: "Real-time Questions" },
+          { icon: ShieldCheck, label: "Anti-cheat Protection" },
+          { icon: Trophy, label: "Live Leaderboard" },
+        ].map(({ icon: Icon, label }) => (
+          <div
+            key={label}
+            className="flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm"
+          >
+            <Icon className="h-4 w-4 text-primary" />
+            {label}
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
