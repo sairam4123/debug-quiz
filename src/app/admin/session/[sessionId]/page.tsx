@@ -15,7 +15,11 @@ export default function AdminSessionPage() {
 
     const { data: session, isLoading } = api.admin.getSession.useQuery({ sessionId }, {
         enabled: !!sessionId,
-        refetchInterval: 1000,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            if (data?.status === "ENDED") return false;
+            return 1000;
+        },
     });
 
     const [status, setStatus] = useState("WAITING");
