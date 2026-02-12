@@ -7,6 +7,7 @@ import { Rocket, SkipForward, StopCircle, Trophy, BarChart3, Medal } from "lucid
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { DownloadResults } from "../components/DownloadResults";
 
 export default function AdminSessionPage() {
     const params = useParams();
@@ -104,9 +105,12 @@ export default function AdminSessionPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Session Control</h1>
                     <p className="text-muted-foreground mt-1">Managing: <span className="font-semibold text-foreground">{session.quiz.title}</span></p>
                 </div>
-                <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-xl flex flex-col items-center">
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Join Code</span>
-                    <span className="text-3xl font-mono font-bold text-primary tracking-widest">{session.code}</span>
+                <div className="flex items-center gap-4">
+                    <DownloadResults session={session} />
+                    <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-xl flex flex-col items-center">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Join Code</span>
+                        <span className="text-3xl font-mono font-bold text-primary tracking-widest">{session.code}</span>
+                    </div>
                 </div>
             </div>
 

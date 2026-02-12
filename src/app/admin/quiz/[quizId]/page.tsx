@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Save, Play, Loader2, Trash2 } from "lucide-react";
 import { QuestionEditor, type QuestionData, type OptionData } from "../new/components/QuestionEditor"; // Reuse component
+import { BulkUpload } from "../components/BulkUpload";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function EditQuizPage() {
@@ -205,6 +206,7 @@ export default function EditQuizPage() {
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold">Questions</h2>
+                    <BulkUpload onQuestionsImported={(newQuestions) => setQuestions([...questions, ...newQuestions])} />
                 </div>
 
                 {questions.map((q, index) => (

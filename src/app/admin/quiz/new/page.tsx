@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Save, ArrowRight, ArrowLeft, Check, FileText, HelpCircle, Eye, Clock, Trophy } from "lucide-react";
 import { QuestionEditor, type QuestionData, type OptionData } from "./components/QuestionEditor";
+import { BulkUpload } from "../components/BulkUpload";
 
 const STEPS = [
     { label: "Details", icon: FileText },
@@ -191,6 +192,8 @@ export default function NewQuizPage() {
 
             {step === 1 && (
                 <div className="space-y-4">
+                    <BulkUpload onQuestionsImported={(newQuestions) => setQuestions([...questions, ...newQuestions])} />
+
                     {questions.map((q, index) => (
                         <QuestionEditor
                             key={index}

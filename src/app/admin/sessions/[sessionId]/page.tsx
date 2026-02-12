@@ -9,6 +9,7 @@ import { ArrowLeft, Trophy, Users, Clock, Hash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
+import { DownloadResults } from "../../session/components/DownloadResults";
 
 export default function SessionDetailsPage() {
     const params = useParams();
