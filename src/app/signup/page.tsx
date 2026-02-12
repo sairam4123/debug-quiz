@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { useAlert } from "@/components/providers/alert-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { Code2, ArrowLeft } from "lucide-react";
 
 export default function SignupPage() {
     const router = useRouter();
+    const { alert } = useAlert();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -27,7 +29,7 @@ export default function SignupPage() {
         });
 
         if (error) {
-            alert(error.message);
+            await alert(error.message || "An unknown error occurred", "Error");
         } else {
             router.push("/admin/dashboard");
         }

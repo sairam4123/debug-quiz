@@ -12,11 +12,13 @@ import { Plus, Save, Play, Loader2, Trash2 } from "lucide-react";
 import { QuestionEditor, type QuestionData, type OptionData } from "../new/components/QuestionEditor"; // Reuse component
 import { BulkUpload } from "../components/BulkUpload";
 import { Spinner } from "@/components/ui/spinner";
+import { useAlert } from "@/components/providers/alert-provider";
 
 export default function EditQuizPage() {
     const params = useParams();
     const quizId = params.quizId as string;
     const router = useRouter();
+    const { alert } = useAlert();
 
     const { data: quiz, isLoading } = api.admin.getQuiz.useQuery({ id: quizId }, {
         enabled: !!quizId
@@ -47,11 +49,11 @@ export default function EditQuizPage() {
     }, [quiz]);
 
     const updateQuiz = api.admin.updateQuiz.useMutation({
-        onSuccess: () => {
-            alert("Quiz updated successfully!");
+        onSuccess: async () => {
+            await alert("Quiz updated successfully!", "Success");
         },
-        onError: (err) => {
-            alert(err.message);
+        onError: async (err) => {
+            await alert(err.message, "Error");
         }
     });
 
@@ -65,8 +67,8 @@ export default function EditQuizPage() {
         onSuccess: () => {
             router.push("/admin/quizzes");
         },
-        onError: (err) => {
-            alert(err.message);
+        onError: async (err) => {
+            await alert(err.message, "Error");
         }
     });
 
@@ -123,8 +125,11 @@ export default function EditQuizPage() {
         }
     };
 
-    const handleSave = () => {
-        if (!title) return alert("Title is required");
+    const handleSave = async () => {
+        if (!title) {
+            await alert("Title is required", "Validation Error");
+            return;
+        }
         updateQuiz.mutate({
             id: quizId,
             title,

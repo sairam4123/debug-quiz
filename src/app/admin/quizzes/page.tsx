@@ -6,20 +6,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@mce-quiz/trpc/react";
 import { Plus, LayoutList, Calendar, HelpCircle, ArrowRight, Trash2, Play } from "lucide-react";
+import { useAlert } from "@/components/providers/alert-provider";
 import { Spinner } from "@/components/ui/spinner";
 import { format } from "date-fns";
 
 export default function QuizzesPage() {
     const router = useRouter();
     const utils = api.useUtils();
+    const { alert } = useAlert();
     const { data: quizzes, isLoading } = api.admin.getQuizzes.useQuery();
 
     const deleteQuiz = api.quiz.delete.useMutation({
         onSuccess: () => {
             utils.admin.getQuizzes.invalidate();
         },
-        onError: (err) => {
-            alert("Failed to delete quiz: " + err.message);
+        onError: async (err) => {
+            await alert("Failed to delete quiz: " + err.message, "Error");
         }
     });
 
@@ -28,8 +30,8 @@ export default function QuizzesPage() {
             utils.admin.getQuizzes.invalidate();
             router.push(`/admin/session/${session.id}`);
         },
-        onError: (err) => {
-            alert("Failed to start quiz: " + err.message);
+        onError: async (err) => {
+            await alert("Failed to start quiz: " + err.message, "Error");
         }
     });
 

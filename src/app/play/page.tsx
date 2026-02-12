@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { useAlert } from "@/components/providers/alert-provider";
 
 // ----- Hype messages with Lucide icons + colors -----
 const HYPE_MESSAGES = [
@@ -104,6 +105,7 @@ function RankIcon({ rank }: { rank: number }) {
 
 export default function PlayPage() {
     const router = useRouter();
+    const { alert } = useAlert();
     const [name, setName] = useState("");
     const [code, setCode] = useState("");
     const [selectedClass, setSelectedClass] = useState("");
@@ -166,8 +168,8 @@ export default function PlayPage() {
                 setLastSyncedQuestionId(data.currentQuestion.id);
             }
         },
-        onError: (error) => {
-            alert(error.message);
+        onError: async (error) => {
+            await alert(error.message || "Failed to join session", "Error");
         }
     });
 
@@ -226,21 +228,23 @@ export default function PlayPage() {
         }
     );
 
-    // --- Polling fallback: only active when SSE is not connected ---
+    // --- Polling fallback: always-on safety net at 10s intervals ---
+    // On Vercel, SSE can be unreliable due to serverless architecture.
+    // This ensures clients always catch up within 10s.
     const { data: polledState } = api.quiz.getGameState.useQuery(
         { playerId: playerId || "" },
         {
-            enabled: !!playerId && gameStatus !== "ENDED" && !sseConnected,
-            refetchInterval: sseError ? 3000 : false,
+            enabled: !!playerId && gameStatus !== "ENDED",
+            refetchInterval: 10000, // 10s — conservative to stay within Vercel limits
         }
     );
 
-    // Sync from polling when SSE is disconnected
+    // Sync from polling fallback
     useEffect(() => {
-        if (polledState && !sseConnected) {
+        if (polledState) {
             syncGameState(polledState as GameState);
         }
-    }, [polledState, sseConnected, syncGameState]);
+    }, [polledState, syncGameState]);
 
     // --- Splash screen auto-dismiss ---
     useEffect(() => {

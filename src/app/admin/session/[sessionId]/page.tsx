@@ -18,7 +18,8 @@ export default function AdminSessionPage() {
         refetchInterval: (query) => {
             const data = query.state.data;
             if (data?.status === "ENDED") return false;
-            return 1000;
+            if (data?.status === "ACTIVE") return 3000;  // 3s when active
+            return 5000; // 5s when waiting
         },
     });
 

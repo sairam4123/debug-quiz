@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Plus, Save, ArrowRight, ArrowLeft, Check, FileText, HelpCircle, Eye, Clock, Trophy } from "lucide-react";
 import { QuestionEditor, type QuestionData, type OptionData } from "./components/QuestionEditor";
 import { BulkUpload } from "../components/BulkUpload";
+import { useAlert } from "@/components/providers/alert-provider";
 
 const STEPS = [
     { label: "Details", icon: FileText },
@@ -20,6 +21,7 @@ const STEPS = [
 
 export default function NewQuizPage() {
     const router = useRouter();
+    const { alert } = useAlert();
     const [step, setStep] = useState(0);
 
     const [title, setTitle] = useState("");
@@ -41,8 +43,8 @@ export default function NewQuizPage() {
         onSuccess: () => {
             router.push("/admin/quizzes");
         },
-        onError: (err) => {
-            alert(err.message);
+        onError: async (err) => {
+            await alert(err.message, "Error");
         }
     });
 

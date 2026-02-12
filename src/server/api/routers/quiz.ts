@@ -6,7 +6,6 @@ import {
 } from "@mce-quiz/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { ee, EVENTS } from "@mce-quiz/server/events";
-import { on } from "events";
 
 // Shared helper: fetch full game state for a session (used by both polling query and SSE subscription)
 async function getSessionGameState(db: any, sessionId: string) {
@@ -211,14 +210,76 @@ export const quizRouter = createTRPCRouter({
         .input(z.object({ sessionId: z.string() }))
         .subscription(async function* ({ ctx, input }) {
             // Yield the current state immediately on connect
-            yield await getSessionGameState(ctx.db, input.sessionId);
+            const initialState = await getSessionGameState(ctx.db, input.sessionId);
+            yield initialState;
 
-            // Then listen for updates and yield fresh state
-            for await (const [data] of on(ee, EVENTS.SESSION_UPDATE)) {
-                const update = data as { sessionId: string };
-                if (update.sessionId === input.sessionId) {
-                    yield await getSessionGameState(ctx.db, input.sessionId);
+            // Track last known state to avoid redundant yields
+            let lastQuestionId = initialState.currentQuestion?.id ?? null;
+            let lastStatus = initialState.status;
+            let lastPlayerCount = initialState.leaderboard.length;
+
+            // Use a hybrid approach:
+            // 1. Listen to EventEmitter for instant updates (works when same process)
+            // 2. Poll DB every 5s as fallback (works across Vercel serverless instances)
+            const DB_POLL_INTERVAL = 5000; // 5 seconds — balances freshness vs DB ops
+            const MAX_LIFETIME = 55000;    // Close before Vercel's 60s timeout to avoid ugly errors
+
+            let shouldStop = false;
+            const startTime = Date.now();
+
+            // Promise-based wake mechanism for EventEmitter events
+            let resolveWait: (() => void) | null = null;
+
+            const onEvent = (data: { sessionId: string }) => {
+                if (data.sessionId === input.sessionId) {
+                    if (resolveWait) {
+                        resolveWait();
+                        resolveWait = null;
+                    }
                 }
+            };
+            ee.on(EVENTS.SESSION_UPDATE, onEvent);
+
+            try {
+                while (!shouldStop) {
+                    // Check lifetime
+                    if (Date.now() - startTime > MAX_LIFETIME) {
+                        break; // Let client reconnect
+                    }
+
+                    // Wait for either: EventEmitter event OR timeout (DB poll interval)
+                    await new Promise<void>((resolve) => {
+                        resolveWait = resolve;
+                        setTimeout(resolve, DB_POLL_INTERVAL);
+                    });
+
+                    // Fetch fresh state from DB
+                    try {
+                        const state = await getSessionGameState(ctx.db, input.sessionId);
+
+                        const currentQId = state.currentQuestion?.id ?? null;
+                        const hasChanged =
+                            currentQId !== lastQuestionId ||
+                            state.status !== lastStatus ||
+                            state.leaderboard.length !== lastPlayerCount;
+
+                        if (hasChanged) {
+                            yield state;
+                            lastQuestionId = currentQId;
+                            lastStatus = state.status;
+                            lastPlayerCount = state.leaderboard.length;
+                        }
+
+                        // Stop if session ended
+                        if (state.status === "ENDED") {
+                            shouldStop = true;
+                        }
+                    } catch {
+                        // DB error — don't crash, just skip this cycle
+                    }
+                }
+            } finally {
+                ee.off(EVENTS.SESSION_UPDATE, onEvent);
             }
         }),
 

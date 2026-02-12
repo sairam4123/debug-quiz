@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { TRPCReactProvider } from "@mce-quiz/trpc/react";
+import { AlertProvider } from "@/components/providers/alert-provider";
 
 export const metadata: Metadata = {
   title: "Debug Quiz — MCE",
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} dark`}>
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <AlertProvider>{children}</AlertProvider>
+        </TRPCReactProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { type QuestionData } from "../new/components/QuestionEditor";
+import { useAlert } from "@/components/providers/alert-provider";
 
 interface BulkUploadProps {
     onQuestionsImported: (questions: QuestionData[]) => void;
@@ -12,6 +13,7 @@ interface BulkUploadProps {
 
 export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const { alert } = useAlert();
 
     const handleDownloadTemplate = () => {
         const headers = [
@@ -68,7 +70,7 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
         setIsLoading(true);
         const reader = new FileReader();
 
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
             try {
                 const bstr = evt.target?.result as ArrayBuffer;
                 const wb = XLSX.read(bstr, { type: "array" });
@@ -77,7 +79,7 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
                 const data = XLSX.utils.sheet_to_json(ws);
 
                 if (!data || data.length === 0) {
-                    alert("No data found in file");
+                    await alert("No data found in file");
                     setIsLoading(false);
                     return;
                 }
@@ -111,7 +113,7 @@ export function BulkUpload({ onQuestionsImported }: BulkUploadProps) {
                 onQuestionsImported(parsedQuestions);
             } catch (error) {
                 console.error("Error parsing file:", error);
-                alert("Failed to parse file. Please check the format.");
+                await alert("Failed to parse file. Please check the format.");
             } finally {
                 setIsLoading(false);
                 // Reset input
