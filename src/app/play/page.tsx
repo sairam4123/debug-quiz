@@ -232,7 +232,7 @@ export default function PlayPage() {
     // Uses wall-clock alignment so ALL clients fetch at the same absolute times
     // (e.g., every 10s boundary: t=0, t=10000, t=20000 ms since epoch).
     // This prevents any client from getting question updates earlier than others.
-    const POLL_INTERVAL = 10000; // 10s — conservative for Vercel limits
+    const POLL_INTERVAL = 5000; // 5s — conservative for Vercel limits
     const pollQuery = api.quiz.getGameState.useQuery(
         { playerId: playerId || "" },
         {

@@ -221,7 +221,7 @@ export const quizRouter = createTRPCRouter({
             // Use a hybrid approach:
             // 1. Listen to EventEmitter for instant updates (works when same process)
             // 2. Poll DB every 5s as fallback (works across Vercel serverless instances)
-            const DB_POLL_INTERVAL = 5000; // 5 seconds — balances freshness vs DB ops
+            const DB_POLL_INTERVAL = 5000; // 5 seconds — aligned wall-clock slots
             const MAX_LIFETIME = 55000;    // Close before Vercel's 60s timeout to avoid ugly errors
 
             let shouldStop = false;
