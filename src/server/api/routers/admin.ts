@@ -4,6 +4,7 @@ import {
     protectedProcedure,
 } from "@mce-quiz/server/api/trpc";
 import { ee, EVENTS } from "@mce-quiz/server/events";
+import { TRPCError } from "@trpc/server";
 
 export const adminRouter = createTRPCRouter({
     createSession: protectedProcedure
@@ -40,7 +41,7 @@ export const adminRouter = createTRPCRouter({
                 data: {
                     status: "ACTIVE",
                     startTime: new Date(),
-                    currentQuestionId: firstQuestion.id,
+                    currentQuestionId: firstQuestion?.id,
                     currentQuestionStartTime: new Date(Date.now() + 2500), // Add 2.5s buffer for client splash screen
                 },
             });
