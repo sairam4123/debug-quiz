@@ -13,7 +13,7 @@ import { format } from "date-fns";
 export default function QuizzesPage() {
     const router = useRouter();
     const utils = api.useUtils();
-    const { alert } = useAlert();
+    const { alert, confirm } = useAlert();
     const { data: quizzes, isLoading } = api.admin.getQuizzes.useQuery();
 
     const deleteQuiz = api.quiz.delete.useMutation({
@@ -112,9 +112,9 @@ export default function QuizzesPage() {
                                 <Button
                                     variant="destructive"
                                     size="icon"
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                         e.preventDefault();
-                                        if (confirm("Are you sure you want to delete this quiz?")) {
+                                        if (await confirm("Are you sure you want to delete this quiz?")) {
                                             deleteQuiz.mutate({ id: quiz.id });
                                         }
                                     }}

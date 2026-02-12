@@ -18,7 +18,7 @@ export default function EditQuizPage() {
     const params = useParams();
     const quizId = params.quizId as string;
     const router = useRouter();
-    const { alert } = useAlert();
+    const { alert, confirm } = useAlert();
 
     const { data: quiz, isLoading } = api.admin.getQuiz.useQuery({ id: quizId }, {
         enabled: !!quizId
@@ -142,8 +142,8 @@ export default function EditQuizPage() {
         });
     };
 
-    const handleStartSession = () => {
-        if (confirm("Start a new game session for this quiz?")) {
+    const handleStartSession = async () => {
+        if (await confirm("Start a new game session for this quiz?")) {
             startSession.mutate({ quizId });
         }
     };
@@ -171,8 +171,8 @@ export default function EditQuizPage() {
                     <Button
                         variant="destructive"
                         size="icon"
-                        onClick={() => {
-                            if (confirm("Are you sure you want to delete this quiz? This action cannot be undone.")) {
+                        onClick={async () => {
+                            if (await confirm("Are you sure you want to delete this quiz? This action cannot be undone.")) {
                                 deleteQuiz.mutate({ id: quizId });
                             }
                         }}

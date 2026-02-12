@@ -4,6 +4,7 @@ import * as React from "react";
 import {
     AlertDialog,
     AlertDialogAction,
+    AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
     AlertDialogFooter,
@@ -12,8 +13,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface AlertOptions {
-    title?: string;
+    title: string;
     description: string;
+    mode: "alert" | "confirm";
 }
 
 interface AlertContextType {
@@ -36,36 +38,47 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     const [options, setOptions] = React.useState<AlertOptions>({
         title: "Alert",
         description: "",
+        mode: "alert",
     });
 
-    // Use a ref to store the resolve function for the current alert
-    const resolveRef = React.useRef<((value: void | boolean) => void) | null>(null);
+    const resolveRef = React.useRef<((value: any) => void) | null>(null);
 
     const alert = React.useCallback((message: string, title?: string) => {
         return new Promise<void>((resolve) => {
             setOptions({
                 title: title || "Notice",
                 description: message,
+                mode: "alert",
             });
-            resolveRef.current = resolve as any;
+            resolveRef.current = resolve;
             setOpen(true);
         });
     }, []);
 
-    // Simple confirm implementation (Ok/Cancel), returns boolean
-    // Not strictly requested but good to have alongside alert
     const confirm = React.useCallback((message: string, title?: string) => {
-        // For now, confirm is synonymous with alert since we only requested alert replacement. 
-        // But to be safe, I'll just implement alert logic only for now to avoid scope creep, 
-        // but keep the type signature in case we want to expand.
-        // Actually, let's stick to just `alert` for now to be simple.
-        return Promise.resolve(true);
+        return new Promise<boolean>((resolve) => {
+            setOptions({
+                title: title || "Confirm",
+                description: message,
+                mode: "confirm",
+            });
+            resolveRef.current = resolve;
+            setOpen(true);
+        });
     }, []);
 
-    const handleClose = () => {
+    const handleConfirm = () => {
         setOpen(false);
         if (resolveRef.current) {
-            resolveRef.current();
+            resolveRef.current(options.mode === "confirm" ? true : undefined);
+            resolveRef.current = null;
+        }
+    };
+
+    const handleCancel = () => {
+        setOpen(false);
+        if (resolveRef.current) {
+            resolveRef.current(false);
             resolveRef.current = null;
         }
     };
@@ -73,7 +86,9 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     return (
         <AlertContext.Provider value={{ alert, confirm }}>
             {children}
-            <AlertDialog open={open} onOpenChange={setOpen}>
+            <AlertDialog open={open} onOpenChange={(val) => {
+                if (!val) handleCancel();
+            }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{options.title}</AlertDialogTitle>
@@ -82,10 +97,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogAction onClick={handleClose}>OK</AlertDialogAction>
+                        {options.mode === "confirm" && (
+                            <AlertDialogCancel onClick={handleCancel}>Cancel</AlertDialogCancel>
+                        )}
+                        <AlertDialogAction onClick={handleConfirm}>OK</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </AlertContext.Provider>
     );
 }
+
