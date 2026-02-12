@@ -179,10 +179,36 @@ export default function PlayPage() {
     });
 
     // --- SSE Subscription (primary real-time path) ---
+    const [forceReconnect, setForceReconnect] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            console.log("[SSE] Reconnecting to session (4m interval)...");
+            // Toggle to trigger re-subscription
+            setForceReconnect(n => n + 1);
+        }, 4 * 60 * 1000); // 4 minutes
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // We can't just pass a random key to the input if the schema doesn't accept it.
+    // Instead, we can use the key to force a remount of the subscription component internally
+    // OR we relies on the fact that if we change the input, it reconnects. 
+    // BUT since we can't change input, we might need to toggle `enabled`.
+
+    const [isReconnecting, setIsReconnecting] = useState(false);
+    useEffect(() => {
+        if (forceReconnect > 0) {
+            setIsReconnecting(true);
+            const timer = setTimeout(() => setIsReconnecting(false), 100);
+            return () => clearTimeout(timer);
+        }
+    }, [forceReconnect]);
+
     api.quiz.onSessionUpdate.useSubscription(
         { sessionId: sessionId || "" },
         {
-            enabled: !!sessionId && gameStatus !== "ENDED",
+            enabled: !!sessionId && gameStatus !== "ENDED" && !isReconnecting,
             onStarted: () => {
                 setSseConnected(true);
                 setSseError(false);
