@@ -5,6 +5,8 @@ import {
 } from "@mce-quiz/server/api/trpc";
 import { ee, EVENTS } from "@mce-quiz/server/events";
 import { TRPCError } from "@trpc/server";
+import { pusher } from "@/server/pusher";
+import { getSessionGameState } from "./game";
 
 export const sessionRouter = createTRPCRouter({
     create: protectedProcedure
@@ -50,6 +52,10 @@ export const sessionRouter = createTRPCRouter({
                 payload: { status: "ACTIVE", currentQuestion: firstQuestion }
             });
 
+            // Trigger Pusher update
+            const state = await getSessionGameState(ctx.db, input.sessionId);
+            await pusher.trigger(`session-${input.sessionId}`, "update", state);
+
             return updatedSession;
         }),
 
@@ -62,6 +68,8 @@ export const sessionRouter = createTRPCRouter({
             });
 
             let nextQuestion = null;
+            let isEnded = false;
+
             if (!session.currentQuestionId) {
                 nextQuestion = session.quiz.questions[0];
             } else {
@@ -86,8 +94,13 @@ export const sessionRouter = createTRPCRouter({
                     payload: { question: nextQuestion }
                 });
 
+                // Trigger Pusher update
+                const state = await getSessionGameState(ctx.db, input.sessionId);
+                await pusher.trigger(`session-${input.sessionId}`, "update", state);
+
                 return { success: true, nextQuestionId: nextQuestion.id };
             } else {
+                isEnded = true;
                 await ctx.db.gameSession.update({
                     where: { id: input.sessionId },
                     data: { status: "ENDED", endTime: new Date() }
@@ -98,6 +111,10 @@ export const sessionRouter = createTRPCRouter({
                     type: "STATUS_CHANGE",
                     payload: { status: "ENDED" }
                 });
+
+                // Trigger Pusher update
+                const state = await getSessionGameState(ctx.db, input.sessionId);
+                await pusher.trigger(`session-${input.sessionId}`, "update", state);
 
                 return { success: false, ended: true };
             }
@@ -116,6 +133,10 @@ export const sessionRouter = createTRPCRouter({
                 type: "STATUS_CHANGE",
                 payload: { status: "ENDED" }
             });
+
+            // Trigger Pusher update
+            const state = await getSessionGameState(ctx.db, input.sessionId);
+            await pusher.trigger(`session-${input.sessionId}`, "update", state);
 
             return session;
         }),

@@ -6,9 +6,10 @@ import {
 } from "@mce-quiz/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { ee, EVENTS } from "@mce-quiz/server/events";
+import { pusher } from "@/server/pusher";
 
 // Helper: fetch full game state for a session
-async function getSessionGameState(db: any, sessionId: string) {
+export async function getSessionGameState(db: any, sessionId: string) {
     const session = await db.gameSession.findUniqueOrThrow({
         where: { id: sessionId },
         include: {
@@ -118,17 +119,16 @@ export const gameRouter = createTRPCRouter({
 
             console.log(`Player joined: ${player.name} (${player.id}) to session ${session.id} status ${session.status}`);
 
-            let currentQuestion = null;
-            if (session.currentQuestionId) {
-                currentQuestion = session.quiz.questions.find(q => q.id === session.currentQuestionId);
-            }
+            // Trigger Pusher update
+            const state = await getSessionGameState(ctx.db, session.id);
+            await pusher.trigger(`session-${session.id}`, "update", state);
 
             return {
                 token: player.id,
                 playerId: player.id,
                 sessionId: session.id,
                 status: session.status,
-                currentQuestion: currentQuestion
+                currentQuestion: state.currentQuestion
             };
         }),
 
@@ -268,6 +268,12 @@ export const gameRouter = createTRPCRouter({
                     data: { score: { increment: score } }
                 });
             }
+
+            // Trigger Pusher update (async to not block response)
+            // We fetch the full state again to broadcast leaderboard changes
+            void getSessionGameState(ctx.db, input.sessionId).then(state => {
+                void pusher.trigger(`session-${input.sessionId}`, "update", state);
+            });
 
             return answer;
         }),

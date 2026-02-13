@@ -70,7 +70,7 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
     );
 
     // Polling
-    const POLL_INTERVAL = 5000;
+    const POLL_INTERVAL = 15000; // 15s (Reduced from 5s)
     const pollQuery = api.game.getGameState.useQuery(
         { playerId: playerId || "" },
         {
@@ -99,6 +99,56 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
             syncGameState(pollQuery.data as GameState);
         }
     }, [pollQuery.data, syncGameState]);
+
+    // Pusher
+    useEffect(() => {
+        if (!sessionId || gameStatus === "ENDED") return;
+
+        const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+        const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+        if (!pusherKey || !pusherCluster) {
+            console.warn("Pusher credentials missing, falling back to SSE/Polling");
+            return;
+        }
+
+        let pusher: any;
+        let channel: any;
+
+        const initPusher = async () => {
+            const Pusher = (await import("pusher-js")).default;
+            pusher = new Pusher(pusherKey, {
+                cluster: pusherCluster,
+            });
+
+            channel = pusher.subscribe(`session-${sessionId}`);
+
+            channel.bind("update", (data: GameState) => {
+                console.log("[Pusher] Update received:", data);
+                syncGameState(data);
+            });
+
+            channel.bind("pusher:subscription_succeeded", () => {
+                console.log("[Pusher] Connected to channel");
+            });
+
+            channel.bind("pusher:subscription_error", (status: any) => {
+                console.warn("[Pusher] Subscription error:", status);
+            });
+        };
+
+        void initPusher();
+
+        return () => {
+            if (channel) {
+                channel.unbind_all();
+                channel.unsubscribe();
+            }
+            if (pusher) {
+                pusher.disconnect();
+            }
+        };
+    }, [sessionId, gameStatus, syncGameState]);
 
     return {
         gameStatus, setGameStatus,
