@@ -29,7 +29,9 @@ export default function AdminSessionPage() {
         totalQuestions: hookTotalQuestions,
         leaderboard,
         isHistory,
-        highestQuestionOrder
+        highestQuestionOrder,
+        supportsIntermission,
+        answersCount
     } = useGameState(sessionId, null);
 
     // Keep getById for detailed player data (answers list) which might not be in hook
@@ -69,8 +71,15 @@ export default function AdminSessionPage() {
 
     useEffect(() => {
         if (timeLeft === 0 && gameStatus === "ACTIVE" && autoAdvance) {
-            // give clients 5 seconds to reconcile
-            setReconcileTimeLeft(5);
+            // give clients 7 seconds to reconcile
+            setReconcileTimeLeft(6);
+
+            console.log(supportsIntermission, "supportsIntermission")
+            if (autoAdvance && supportsIntermission) { // only applicable for intermission flows enabled
+                // Advance for reconcillation
+                console.log("advancing for reconcillation");
+                setTimeout(() => nextQuestion.mutate({ sessionId }), 50);
+            }
 
             // start timer for reconcile
             const interval = setInterval(() => {
@@ -261,12 +270,19 @@ export default function AdminSessionPage() {
                                                     <SkipBack className="md:mr-2 h-5 w-5" /> <p className="hidden md:block">Prev</p>
                                                 </Button>
                                                 <Button
-                                                    className="flex-[2] text-lg h-12 font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white shadow-lg shadow-sky-500/15 border-0"
+                                                    className={cn(
+                                                        "flex-[2] text-lg h-12 font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white shadow-lg shadow-sky-500/15 border-0 transition-all duration-300",
+                                                        answersCount === playersCount && playersCount > 0 && "ring-4 ring-emerald-400 ring-offset-2 animate-pulse from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                                                    )}
                                                     size="lg"
                                                     onClick={() => nextQuestion.mutate({ sessionId })}
                                                     disabled={nextQuestion.isPending || displayStatus === "ENDED"}
                                                 >
-                                                    <SkipForward className="md:mr-2 h-5 w-5" /> <p className="hidden md:block">Next / Skip</p>
+                                                    <SkipForward className="md:mr-2 h-5 w-5" />
+                                                    <p className="hidden md:block">
+                                                        Next / Skip
+                                                        {answersCount === playersCount && playersCount > 0 && " (All Answered)"}
+                                                    </p>
                                                 </Button>
                                             </div>
 

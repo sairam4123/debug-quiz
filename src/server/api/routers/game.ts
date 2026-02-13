@@ -43,7 +43,7 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
     let effectiveStartTime = session.startTime?.toISOString() ?? null;
 
     // Simplified Logic: State is driven by explicit DB updates, not time
-    if (session.status === "ACTIVE") {
+    if (session.status === "ACTIVE" || session.status === "INTERMISSION") {
         currentQuestion = session.currentQuestion;
         if (currentQuestion) {
             questionIndex = currentQuestion.order + 1; // Assuming order is 0-based index
@@ -51,10 +51,12 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
             const idx = session.quiz.questions.findIndex((q: { id: string }) => q.id === currentQuestion!.id);
             if (idx !== -1) questionIndex = idx + 1;
 
-            effectiveStartTime = session.currentQuestionStartTime?.toISOString() ?? new Date().toISOString();
-        } else {
-            // Should not happen in ACTIVE unless waiting for first Q? 
-            // Stick to what DB says.
+            if (session.status === "ACTIVE") {
+                effectiveStartTime = session.currentQuestionStartTime?.toISOString() ?? new Date().toISOString();
+            } else {
+                // For intermission, we might not care about start time, or we can leave it null/old
+                effectiveStartTime = null;
+            }
         }
     } else if (session.status === "WAITING") {
         currentQuestion = null;
@@ -84,16 +86,10 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
     // Calculate Answer Distribution (Only needed for INTERMISSION)
     let answerDistribution: Record<string, number> | null = null;
     let correctAnswerId: string | null = null;
+    let answersCount = 0;
 
-    if (session.status === "INTERMISSION" && currentQuestion) {
-        // Find correct option for current question
-        const correctOption = session.quiz.questions
-            .find(q => q.id === currentQuestion!.id)
-            ?.options.find(o => o.isCorrect);
-
-        correctAnswerId = correctOption?.id ?? null;
-
-        // Aggregate answers
+    if (currentQuestion) {
+        // Aggregate answers for current question
         const answers = await db.answer.groupBy({
             by: ['selectedOptionId'],
             where: {
@@ -101,23 +97,37 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
                 playerId: { in: session.players.map(p => p.id) } // Only current session players
             },
             _count: {
-                selectedOptionId: true
+                selectedOptionId: true,
+                _all: true
             }
         });
 
-        answerDistribution = {};
-        answers.forEach((a: { selectedOptionId: string; _count: { selectedOptionId: number; }; }) => {
-            if (a.selectedOptionId) {
-                answerDistribution![a.selectedOptionId] = a._count.selectedOptionId;
-            }
+        answers.forEach((a: { selectedOptionId: string | null; _count: { selectedOptionId: number; _all: number }; }) => {
+            answersCount += a._count._all;
         });
+
+        if (session.status === "INTERMISSION") {
+            // Find correct option for current question
+            const correctOption = session.quiz.questions
+                .find(q => q.id === currentQuestion!.id)
+                ?.options.find(o => o.isCorrect);
+
+            correctAnswerId = correctOption?.id ?? null;
+
+            answerDistribution = {};
+            answers.forEach((a: { selectedOptionId: string | null; _count: { selectedOptionId: number; }; }) => {
+                if (a.selectedOptionId) {
+                    answerDistribution![a.selectedOptionId] = a._count.selectedOptionId;
+                }
+            });
+        }
     }
 
     return {
         status: status as string,
         currentQuestion,
         questionStartTime: effectiveStartTime,
-        timeLimit: (currentQuestion?.timeLimit ?? 10) as number,
+        timeLimit: ((currentQuestion?.timeLimit ?? 10) + 3.5) as number, // 2.5 secs for splash
         questionIndex,
         totalQuestions,
         leaderboard,
@@ -127,7 +137,9 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
         serverTime: new Date().toISOString(),
         highestQuestionOrder: session.highestQuestionOrder ?? 0,
         answerDistribution,
-        correctAnswerId
+        correctAnswerId,
+        supportsIntermission: session.quiz.showIntermediateStats,
+        answersCount
     };
 }
 

@@ -15,6 +15,8 @@ export type GameState = {
     answerDistribution?: Record<string, number>;
     correctAnswerId?: string;
     leaderboard?: any[];
+    supportsIntermission?: boolean;
+    answersCount?: number;
 };
 
 export function useGameState(sessionId: string | null, playerId: string | null, onNewQuestion?: () => void) {
@@ -28,6 +30,9 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
     const [isHistory, setIsHistory] = useState(false);
     const [highestQuestionOrder, setHighestQuestionOrder] = useState(0);
     const [clockOffset, setClockOffset] = useState(0);
+    const [supportsIntermission, setSupportsIntermission] = useState(false);
+    const [firstLoadAfterJoin, setFirstLoadAfterJoin] = useState(false);
+    const [answersCount, setAnswersCount] = useState(0);
 
 
     const [answerDistribution, setAnswerDistribution] = useState<Record<string, number>>({});
@@ -72,6 +77,8 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
         setHighestQuestionOrder(state.highestQuestionOrder ?? 0);
         setAnswerDistribution(state.answerDistribution ?? {});
         setCorrectAnswerId(state.correctAnswerId ?? "");
+        setSupportsIntermission(state.supportsIntermission ?? false);
+        setAnswersCount(state.answersCount ?? 0);
     }, [lastSyncedQuestionId, onNewQuestion]);
 
     // SSE
@@ -132,10 +139,18 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
     }, [playerId, gameStatus, pusherConnected]); // Removed sseConnected dependency
 
     useEffect(() => {
-        if (pollQuery.data && (pollQuery.data.questionIndex > questionIndex || pollQuery.data.status !== gameStatus)) {
+        if (pollQuery.data && (pollQuery.data.questionIndex > questionIndex || pollQuery.data.status !== gameStatus) && !pusherConnected) {
             syncGameState(pollQuery.data as GameState);
         }
     }, [pollQuery.data, syncGameState, questionIndex, gameStatus]);
+
+
+    useEffect(() => {
+        if (pollQuery.data && !firstLoadAfterJoin) {
+            setFirstLoadAfterJoin(true);
+            syncGameState(pollQuery.data as GameState);
+        }
+    }, [pollQuery.data, syncGameState, firstLoadAfterJoin]);
 
     // Pusher
     const syncGameStateRef = useRef(syncGameState);
@@ -247,6 +262,8 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
         isIntermission: gameStatus === "INTERMISSION",
         answerDistribution,
         correctAnswerId,
-        clockOffset
+        clockOffset,
+        supportsIntermission,
+        answersCount
     };
 }

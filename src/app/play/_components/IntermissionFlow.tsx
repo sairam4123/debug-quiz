@@ -59,15 +59,17 @@ export function IntermissionFlow({
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <div className="text-center mb-6">
-                            <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                                Leaderboard
-                            </h2>
+                        <div className="">
+                            <div className="text-center mb-6">
+                                <h2 className="text-3xl font-bold bg-linear-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                                    Leaderboard
+                                </h2>
+                            </div>
+                            <GameLeaderboard
+                                leaderboard={leaderboard}
+                                playerId={currentUserId || null}
+                            />
                         </div>
-                        <GameLeaderboard
-                            leaderboard={leaderboard}
-                            playerId={currentUserId || null}
-                        />
                     </motion.div>
                 )}
             </AnimatePresence>

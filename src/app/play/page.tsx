@@ -54,7 +54,8 @@ export default function PlayPage() {
         clockOffset,
         answerDistribution,
         correctAnswerId,
-        isIntermission
+        isIntermission,
+        supportsIntermission
     } = useGameState(sessionId, playerId, onNewQuestion);
 
     // Timer expired — show between-question leaderboard
@@ -96,14 +97,15 @@ export default function PlayPage() {
     if (gameStatus === "ACTIVE" && currentQuestion) {
         console.log()
         if (timerExpired && leaderboard.length > 0 && !isHistory) {
+            // Waiting for results
             return (
-                <GameLeaderboard
-                    leaderboard={leaderboard}
-                    playerId={playerId}
-                    isFinal={false}
-                    questionIndex={questionIndex}
-                    totalQuestions={totalQuestions}
-                />
+                <div className="flex items-center justify-center h-screen">
+                    <div className="text-center">
+                        <h2 className="text-3xl font-bold bg-linear-to-r from-yellow-400 to-orange-500 bg-clip-text animate-pulse text-transparent">
+                            Waiting for results...
+                        </h2>
+                    </div>
+                </div>
             );
         }
 
@@ -124,6 +126,7 @@ export default function PlayPage() {
                 pusherConnected={pusherConnected}
                 isHistory={isHistory}
                 clockOffset={clockOffset}
+                supportsIntermission={supportsIntermission}
             />
         );
     }

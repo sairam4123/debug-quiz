@@ -1,4 +1,3 @@
-import { postRouter } from "@mce-quiz/server/api/routers/post";
 import { quizRouter } from "@mce-quiz/server/api/routers/quiz";
 import { adminRouter } from "@mce-quiz/server/api/routers/admin";
 import { gameRouter } from "@mce-quiz/server/api/routers/game";
@@ -14,7 +13,6 @@ import {
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  post: postRouter,
   quiz: quizRouter,
   admin: adminRouter,
   game: gameRouter,

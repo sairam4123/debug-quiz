@@ -26,6 +26,6 @@ export function useGameSession() {
         playerId, setPlayerId,
         sessionId, setSessionId,
         joinStep, setJoinStep,
-        joinSession
+        joinSession,
     };
 }

@@ -22,6 +22,8 @@ type GameQuestionProps = {
     pusherConnected: boolean;
     isHistory: boolean;
     clockOffset: number;
+
+    supportsIntermission: boolean;
 };
 
 export function GameQuestion({
@@ -39,7 +41,8 @@ export function GameQuestion({
     sseConnected,
     pusherConnected,
     isHistory,
-    clockOffset
+    clockOffset,
+    supportsIntermission,
 }: GameQuestionProps) {
 
     // Splash Screen
@@ -121,9 +124,12 @@ export function GameQuestion({
                                             Q{questionIndex}/{totalQuestions}
                                         </span>
                                     )}
-                                    <p className="text-xs text-muted-foreground animate-pulse mt-2">
-                                        Waiting for next question...
+                                    {supportsIntermission ? <p className="text-xs text-muted-foreground animate-pulse mt-2">
+                                        Waiting for results...
                                     </p>
+                                        : <p className="text-xs text-muted-foreground animate-pulse mt-2">
+                                            Waiting for next question...
+                                        </p>}
                                 </div>
                             );
                         })()

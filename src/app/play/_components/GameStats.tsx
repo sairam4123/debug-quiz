@@ -17,7 +17,7 @@ export function GameStats({ answerDistribution, options, totalPlayers }: GameSta
     return (
         <div className="w-full max-w-2xl mx-auto space-y-6">
             <div className="text-center space-y-2">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                     Question Stats
                 </h2>
                 <p className="text-muted-foreground">
