@@ -26,7 +26,6 @@ export default function NewQuizPage() {
     const [step, setStep] = useState(0);
 
     const [title, setTitle] = useState("");
-    const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [showIntermediateStats, setShowIntermediateStats] = useState(true);
     const [questions, setQuestions] = useState<QuestionData[]>([
