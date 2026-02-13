@@ -42,7 +42,8 @@ export const sessionRouter = createTRPCRouter({
                     status: "ACTIVE",
                     startTime: new Date(),
                     currentQuestionId: firstQuestion?.id,
-                    currentQuestionStartTime: new Date(Date.now() + 2500),
+                    currentQuestionStartTime: new Date(),
+                    highestQuestionOrder: firstQuestion?.order ?? 0,
                 },
             });
 
@@ -66,41 +67,48 @@ export const sessionRouter = createTRPCRouter({
                 where: { id: input.sessionId },
                 include: { quiz: { include: { questions: { include: { options: true }, orderBy: { order: 'asc' } } } } }
             });
+            const now = Date.now();
 
-            let nextQuestion = null;
-            let isEnded = false;
-
-            if (!session.currentQuestionId) {
-                nextQuestion = session.quiz.questions[0];
-            } else {
-                const currentIndex = session.quiz.questions.findIndex(q => q.id === session.currentQuestionId);
-                if (currentIndex < session.quiz.questions.length - 1) {
-                    nextQuestion = session.quiz.questions[currentIndex + 1];
-                }
-            }
-
-            if (nextQuestion) {
+            // Intermission Logic
+            // If currently ACTIVE and stats enabled -> switch to INTERMISSION
+            if (session.status === "ACTIVE" && session.quiz.showIntermediateStats) {
                 await ctx.db.gameSession.update({
                     where: { id: input.sessionId },
                     data: {
-                        currentQuestionId: nextQuestion.id,
-                        currentQuestionStartTime: new Date(Date.now() + 2500),
+                        status: "INTERMISSION"
                     }
                 });
 
                 ee.emit(EVENTS.SESSION_UPDATE, {
                     sessionId: input.sessionId,
-                    type: "NEW_QUESTION",
-                    payload: { question: nextQuestion }
+                    type: "STATUS_CHANGE",
+                    payload: { status: "INTERMISSION" }
                 });
 
-                // Trigger Pusher update
                 const state = await getSessionGameState(ctx.db, input.sessionId);
                 await pusher.trigger(`session-${input.sessionId}`, "update", state);
 
-                return { success: true, nextQuestionId: nextQuestion.id };
-            } else {
-                isEnded = true;
+                return { success: true, status: "INTERMISSION" };
+            }
+
+            // If INTERMISSION or (ACTIVE and stats disabled) -> Move to Next Question
+            // (Existing logic follows)
+
+            const currentQ = await ctx.db.question.findUnique({
+                where: { id: session.currentQuestionId ?? "" }
+            });
+
+            // Find current index
+            let currentIndex = -1;
+            if (currentQ) {
+                currentIndex = session.quiz.questions.findIndex(q => q.id === currentQ.id);
+            }
+
+            const targetIndex = currentIndex + 1;
+            const questions = session.quiz.questions;
+
+            if (targetIndex >= questions.length) {
+                // End Session
                 await ctx.db.gameSession.update({
                     where: { id: input.sessionId },
                     data: { status: "ENDED", endTime: new Date() }
@@ -112,12 +120,80 @@ export const sessionRouter = createTRPCRouter({
                     payload: { status: "ENDED" }
                 });
 
-                // Trigger Pusher update
                 const state = await getSessionGameState(ctx.db, input.sessionId);
                 await pusher.trigger(`session-${input.sessionId}`, "update", state);
 
                 return { success: false, ended: true };
             }
+
+            const targetQuestion = questions[targetIndex]!;
+
+            // Update DB
+            await ctx.db.gameSession.update({
+                where: { id: input.sessionId },
+                data: {
+                    status: "ACTIVE", // Force active (in case coming from intermission)
+                    currentQuestionId: targetQuestion.id,
+                    currentQuestionStartTime: new Date(),
+
+                    // Only update highest reached if we are moving forward past previous max
+                    highestQuestionOrder: {
+                        set: Math.max(session.highestQuestionOrder, targetQuestion.order)
+                    }
+                }
+            });
+
+            // Trigger Pusher
+            const state = await getSessionGameState(ctx.db, input.sessionId);
+            await pusher.trigger(`session-${input.sessionId}`, "update", state);
+
+            return { success: true, nextQuestionId: targetQuestion.id };
+        }),
+
+    previous: protectedProcedure
+        .input(z.object({ sessionId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const session = await ctx.db.gameSession.findUniqueOrThrow({
+                where: { id: input.sessionId },
+                include: { quiz: { include: { questions: { orderBy: { order: 'asc' } } } } }
+            });
+
+            if (session.mode !== "CLASSROOM") {
+                throw new TRPCError({ code: "FORBIDDEN", message: "Rewind only available in Classroom mode" });
+            }
+
+            const currentQ = await ctx.db.question.findUnique({
+                where: { id: session.currentQuestionId ?? "" }
+            });
+
+            let currentIndex = -1;
+            if (currentQ) {
+                currentIndex = session.quiz.questions.findIndex(q => q.id === currentQ.id);
+            }
+
+            if (currentIndex === -1) {
+                // If not found, maybe end of quiz? default to last
+                currentIndex = session.quiz.questions.length;
+            }
+
+            const targetIndex = Math.max(0, currentIndex - 1);
+            const targetQuestion = session.quiz.questions[targetIndex];
+
+            // Update DB - DO NOT update highestQuestionOrder if rewinding
+            await ctx.db.gameSession.update({
+                where: { id: input.sessionId },
+                data: {
+                    currentQuestionId: targetQuestion?.id,
+                    currentQuestionStartTime: new Date(),
+                    status: "ACTIVE" // Ensure active if it was ended
+                }
+            });
+
+            // Trigger Pusher
+            const state = await getSessionGameState(ctx.db, input.sessionId);
+            await pusher.trigger(`session-${input.sessionId}`, "update", state);
+
+            return { success: true, targetIndex };
         }),
 
     end: protectedProcedure
@@ -162,7 +238,12 @@ export const sessionRouter = createTRPCRouter({
     getById: protectedProcedure
         .input(z.object({ sessionId: z.string() }))
         .query(async ({ ctx, input }) => {
-            return ctx.db.gameSession.findUniqueOrThrow({
+
+
+            // use Session from game.ts
+            const session = await getSessionGameState(ctx.db, input.sessionId);
+
+            const dbSession = await ctx.db.gameSession.findUniqueOrThrow({
                 where: { id: input.sessionId },
                 include: {
                     quiz: {
@@ -191,5 +272,8 @@ export const sessionRouter = createTRPCRouter({
                     }
                 }
             });
+
+            return { ...dbSession, ...(session.status !== "ENDED" ? session : {}) };
+
         }),
 });

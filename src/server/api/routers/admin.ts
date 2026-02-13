@@ -18,4 +18,19 @@ export const adminRouter = createTRPCRouter({
                 totalPlayers,
             };
         }),
+
+    getQuizzes: protectedProcedure
+        .query(async ({ ctx }) => {
+            return ctx.db.quiz.findMany({
+                orderBy: { createdAt: "desc" },
+                select: {
+                    id: true,
+                    title: true,
+                    createdAt: true,
+                    _count: {
+                        select: { questions: true }
+                    }
+                }
+            });
+        }),
 });

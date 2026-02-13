@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trophy, Crown, Medal, Star, BarChart3, RotateCcw, User } from "lucide-react";
 import { Confetti } from "@/components/ui/confetti";
+import { motion, AnimatePresence } from "framer-motion";
 
 function RankIcon({ rank }: { rank: number }) {
     if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
@@ -59,37 +60,44 @@ export function GameLeaderboard({
                                 <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
                                 Leaderboard
                             </div>
-                            <div className="space-y-1.5 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                                {leaderboard.map((entry) => {
-                                    const isMe = entry.playerId === playerId;
-                                    const rankBg = entry.rank === 1
-                                        ? "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/20"
-                                        : entry.rank === 2
-                                            ? "bg-gradient-to-r from-slate-300/10 to-slate-400/10 border-slate-400/20"
-                                            : entry.rank === 3
-                                                ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
-                                                : isMe
-                                                    ? "bg-teal-500/10 border-teal-500/20"
-                                                    : "bg-muted/50 border-transparent";
-                                    return (
-                                        <div
-                                            key={entry.playerId}
-                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors border ${rankBg}`}
-                                        >
-                                            <RankIcon rank={entry.rank} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
-                                                    {entry.name}
-                                                    {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">{entry.class}</p>
-                                            </div>
-                                            <span className="font-bold text-lg tabular-nums">
-                                                {entry.score}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
+                            <div className="space-y-1.5 max-h-96 overflow-y-auto pr-2 custom-scrollbar relative">
+                                <AnimatePresence mode="popLayout">
+                                    {leaderboard.map((entry) => {
+                                        const isMe = entry.playerId === playerId;
+                                        const rankBg = entry.rank === 1
+                                            ? "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/20"
+                                            : entry.rank === 2
+                                                ? "bg-gradient-to-r from-slate-300/10 to-slate-400/10 border-slate-400/20"
+                                                : entry.rank === 3
+                                                    ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
+                                                    : isMe
+                                                        ? "bg-teal-500/10 border-teal-500/20"
+                                                        : "bg-muted/50 border-transparent";
+                                        return (
+                                            <motion.div
+                                                layout
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.9 }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                key={entry.playerId}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors border ${rankBg}`}
+                                            >
+                                                <RankIcon rank={entry.rank} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
+                                                        {entry.name}
+                                                        {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">{entry.class}</p>
+                                                </div>
+                                                <span className="font-bold text-lg tabular-nums">
+                                                    {entry.score}
+                                                </span>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </AnimatePresence>
                             </div>
                         </div>
 
@@ -129,35 +137,41 @@ export function GameLeaderboard({
                         )}
                     </div>
 
-                    <div className="space-y-1.5">
-                        {leaderboard.slice(0, 10).map((entry, idx) => {
-                            const isMe = entry.playerId === playerId;
-                            const rankBg = entry.rank === 1
-                                ? "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/20"
-                                : entry.rank === 2
-                                    ? "bg-gradient-to-r from-slate-300/10 to-slate-400/10 border-slate-400/20"
-                                    : entry.rank === 3
-                                        ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
-                                        : isMe
-                                            ? "bg-teal-500/10 border-teal-500/20"
-                                            : "bg-muted/50 border-transparent";
-                            return (
-                                <div
-                                    key={entry.playerId}
-                                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300 ${rankBg}`}
-                                    style={{ animationDelay: `${idx * 60}ms` }}
-                                >
-                                    <RankIcon rank={entry.rank} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
-                                            {entry.name}
-                                            {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
-                                        </p>
-                                    </div>
-                                    <span className="font-bold tabular-nums">{entry.score}</span>
-                                </div>
-                            );
-                        })}
+                    <div className="space-y-1.5 relative">
+                        <AnimatePresence mode="popLayout">
+                            {leaderboard.slice(0, 10).map((entry, idx) => {
+                                const isMe = entry.playerId === playerId;
+                                const rankBg = entry.rank === 1
+                                    ? "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/20"
+                                    : entry.rank === 2
+                                        ? "bg-gradient-to-r from-slate-300/10 to-slate-400/10 border-slate-400/20"
+                                        : entry.rank === 3
+                                            ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
+                                            : isMe
+                                                ? "bg-teal-500/10 border-teal-500/20"
+                                                : "bg-muted/50 border-transparent";
+                                return (
+                                    <motion.div
+                                        layout
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        key={entry.playerId}
+                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300 ${rankBg}`}
+                                    >
+                                        <RankIcon rank={entry.rank} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
+                                                {entry.name}
+                                                {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
+                                            </p>
+                                        </div>
+                                        <span className="font-bold tabular-nums">{entry.score}</span>
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
                     </div>
 
                     {totalQuestions && (

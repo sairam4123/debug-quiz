@@ -10,11 +10,13 @@ export const quizRouter = createTRPCRouter({
             z.object({
                 title: z.string().min(1),
                 description: z.string().optional(),
+                showIntermediateStats: z.boolean().optional(),
                 questions: z.array(
                     z.object({
                         text: z.string().min(1),
                         type: z.enum(["PROGRAM_OUTPUT", "CODE_CORRECTION", "KNOWLEDGE"]),
                         codeSnippet: z.string().optional(),
+                        language: z.string().optional(),
                         timeLimit: z.number().min(5).optional(),
                         baseScore: z.number().min(100).optional(),
                         options: z.array(
@@ -32,12 +34,14 @@ export const quizRouter = createTRPCRouter({
                 data: {
                     title: input.title,
                     description: input.description,
+                    showIntermediateStats: input.showIntermediateStats ?? true,
                     createdBy: { connect: { id: ctx.session.user.id } },
                     questions: {
                         create: input.questions.map((q, index) => ({
                             text: q.text,
                             type: q.type,
                             codeSnippet: q.codeSnippet,
+                            language: q.language || "python",
                             timeLimit: q.timeLimit ?? 10,
                             baseScore: q.baseScore ?? 1000,
                             order: index,
@@ -71,6 +75,7 @@ export const quizRouter = createTRPCRouter({
             id: z.string(),
             title: z.string().min(1),
             description: z.string().optional(),
+            showIntermediateStats: z.boolean().optional(),
             questions: z.array(z.object({
                 id: z.string().optional(),
                 text: z.string().min(1),
@@ -93,6 +98,7 @@ export const quizRouter = createTRPCRouter({
                     data: {
                         title: input.title,
                         description: input.description,
+                        showIntermediateStats: input.showIntermediateStats,
                     }
                 });
 

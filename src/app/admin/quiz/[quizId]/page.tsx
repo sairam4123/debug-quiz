@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Save, Play, Loader2, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { QuestionEditor, type QuestionData, type OptionData } from "../new/components/QuestionEditor"; // Reuse component
 import { BulkUpload } from "../components/BulkUpload";
 import { Spinner } from "@/components/ui/spinner";
@@ -26,12 +27,14 @@ export default function EditQuizPage() {
 
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [showIntermediateStats, setShowIntermediateStats] = useState(true);
     const [questions, setQuestions] = useState<QuestionData[]>([]);
 
     useEffect(() => {
         if (quiz) {
             setTitle(quiz.title);
             setDescription(quiz.description || "");
+            setShowIntermediateStats(quiz.showIntermediateStats ?? true);
             setQuestions(quiz.questions.map(q => ({
                 id: q.id,
                 text: q.text,
@@ -134,6 +137,7 @@ export default function EditQuizPage() {
             id: quizId,
             title,
             description,
+            showIntermediateStats,
             questions: questions.map(q => ({
                 ...q,
                 timeLimit: parseInt(q.timeLimit?.toString() ?? "10"),
@@ -204,6 +208,14 @@ export default function EditQuizPage() {
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                         />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="show-stats"
+                            checked={showIntermediateStats}
+                            onCheckedChange={setShowIntermediateStats}
+                        />
+                        <Label htmlFor="show-stats">Show Intermediate Stats & Leaderboard</Label>
                     </div>
                 </CardContent>
             </Card>

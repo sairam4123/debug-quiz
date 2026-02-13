@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function TimerBar({ startTime, timeLimit, onExpire }: { startTime: string | null; timeLimit: number; onExpire?: () => void }) {
+export function TimerBar({ startTime, timeLimit, onExpire, clockOffset }: { startTime: string | null; timeLimit: number; onExpire?: () => void; clockOffset?: number }) {
     const [progress, setProgress] = useState(100);
     const [hasFired, setHasFired] = useState(false);
 
@@ -12,9 +12,12 @@ export function TimerBar({ startTime, timeLimit, onExpire }: { startTime: string
         if (!startTime) return;
         const start = new Date(startTime).getTime();
         const durationMs = timeLimit * 1000;
+        const offset = clockOffset || 0;
 
         const tick = () => {
-            const elapsed = Date.now() - start;
+            // Adjust Date.now() by adding the offset to match Server Time
+            const now = Date.now() + offset;
+            const elapsed = now - start;
             const remaining = Math.max(0, 100 - (elapsed / durationMs) * 100);
             setProgress(remaining);
             if (remaining <= 0 && !hasFired) {
@@ -26,7 +29,7 @@ export function TimerBar({ startTime, timeLimit, onExpire }: { startTime: string
         tick();
         const interval = setInterval(tick, 100);
         return () => clearInterval(interval);
-    }, [startTime, timeLimit, hasFired, onExpire]);
+    }, [startTime, timeLimit, hasFired, onExpire, clockOffset]);
 
     const barColor =
         progress > 50 ? "bg-gradient-to-r from-teal-500 to-cyan-500" : progress > 20 ? "bg-gradient-to-r from-amber-400 to-amber-500" : "bg-gradient-to-r from-rose-400 to-rose-500";

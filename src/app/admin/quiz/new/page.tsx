@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Save, ArrowRight, ArrowLeft, Check, FileText, HelpCircle, Eye, Clock, Trophy } from "lucide-react";
 import { QuestionEditor, type QuestionData, type OptionData } from "./components/QuestionEditor";
@@ -25,7 +26,9 @@ export default function NewQuizPage() {
     const [step, setStep] = useState(0);
 
     const [title, setTitle] = useState("");
+    const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [showIntermediateStats, setShowIntermediateStats] = useState(true);
     const [questions, setQuestions] = useState<QuestionData[]>([
         {
             text: "",
@@ -115,6 +118,7 @@ export default function NewQuizPage() {
         createQuiz.mutate({
             title,
             description,
+            showIntermediateStats,
             questions: questions.map(q => ({
                 ...q,
                 timeLimit: parseInt(q.timeLimit?.toString() ?? "10"),
@@ -188,6 +192,14 @@ export default function NewQuizPage() {
                                 className="min-h-[100px]"
                             />
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                id="show-stats"
+                                checked={showIntermediateStats}
+                                onCheckedChange={setShowIntermediateStats}
+                            />
+                            <Label htmlFor="show-stats">Show Intermediate Stats & Leaderboard</Label>
+                        </div>
                     </CardContent>
                 </Card>
             )}
@@ -227,6 +239,9 @@ export default function NewQuizPage() {
                                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Title</p>
                                 <p className="font-semibold text-lg">{title}</p>
                                 {description && <p className="text-muted-foreground text-sm">{description}</p>}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Intermediate Stats: <span className="font-medium text-foreground">{showIntermediateStats ? "Enabled" : "Disabled"}</span>
+                                </p>
                             </div>
 
                             {/* Questions summary */}

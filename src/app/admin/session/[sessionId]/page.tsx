@@ -5,98 +5,115 @@ import { api } from "@mce-quiz/trpc/react";
 import { Button } from "@/components/ui/button";
 import {
     Rocket, SkipForward, StopCircle, Trophy, BarChart3, Medal,
-    Users, CircleDot, HelpCircle, Timer, Sparkles, Download
+    Users, CircleDot, HelpCircle, Timer, Sparkles, SkipBack, History
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { DownloadResults } from "../components/DownloadResults";
+import { DownloadResults } from "../components/DownloadResults"; // Fix import path if needed
 import { cn } from "@/lib/utils";
+import { useGameState } from "@/app/hooks/useGameState";
+import { KeepAliveManager } from "@/app/admin/components/KeepAliveManager";
 
 export default function AdminSessionPage() {
     const params = useParams();
     const sessionId = params?.sessionId as string;
 
+    // Use shared hook for real-time state
+    const {
+        gameStatus,
+        currentQuestion,
+        questionStartTime,
+        timeLimit,
+        questionIndex,
+        totalQuestions: hookTotalQuestions,
+        leaderboard,
+        isHistory,
+        highestQuestionOrder
+    } = useGameState(sessionId, null);
+
+    // Keep getById for detailed player data (answers list) which might not be in hook
     const { data: session, isLoading } = api.session.getById.useQuery({ sessionId }, {
         enabled: !!sessionId,
         refetchInterval: (query) => {
+            // Refresh detailed data occasionally
             const data = query.state.data;
             if (data?.status === "ENDED") return false;
-            if (data?.status === "ACTIVE") return 3000;
             return 5000;
         },
     });
 
-    const [status, setStatus] = useState("WAITING");
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const autoSwitchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [reconcileTimeLeft, setReconcileTimeLeft] = useState<number | null>(null);
+    const [autoAdvance, setAutoAdvance] = useState(false);
 
+    // Calculate Time Left based on Server Time
     useEffect(() => {
-        if (session) {
-            setStatus(session.status);
-        }
-    }, [session]);
-
-    const nextQuestion = api.session.next.useMutation();
-    const endSession = api.session.end.useMutation({
-        onSuccess: () => {
-            setStatus("ENDED");
-            clearTimers();
-        }
-    });
-    const startSession = api.session.start.useMutation({
-        onSuccess: () => {
-            setStatus("ACTIVE");
-        }
-    });
-
-    const clearTimers = useCallback(() => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (autoSwitchRef.current) clearTimeout(autoSwitchRef.current);
-        timerRef.current = null;
-        autoSwitchRef.current = null;
-    }, []);
-
-    useEffect(() => {
-        clearTimers();
-
-        if (status !== "ACTIVE" || !session?.currentQuestion) {
+        if (!questionStartTime || gameStatus !== "ACTIVE") {
             setTimeLeft(null);
             return;
         }
 
-        const timeLimit = session.currentQuestion.timeLimit || 10;
-        const startTime = session.currentQuestionStartTime
-            ? new Date(session.currentQuestionStartTime).getTime()
-            : Date.now();
+        const tick = () => {
+            const now = Date.now();
+            const start = new Date(questionStartTime).getTime();
+            const elapsed = (now - start) / 1000;
+            const remaining = Math.max(0, Math.ceil(timeLimit - elapsed));
+            setTimeLeft(remaining);
+        };
 
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const remaining = Math.max(0, timeLimit - elapsed);
-        setTimeLeft(remaining);
+        tick(); // Initial
+        const interval = setInterval(tick, 100);
+        return () => clearInterval(interval);
+    }, [questionStartTime, gameStatus, timeLimit]);
 
-        timerRef.current = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev === null || prev <= 1) return 0;
-                return prev - 1;
-            });
-        }, 1000);
+    useEffect(() => {
+        if (timeLeft === 0 && gameStatus === "ACTIVE" && autoAdvance) {
+            // give clients 5 seconds to reconcile
+            setReconcileTimeLeft(5);
 
-        autoSwitchRef.current = setTimeout(() => {
-            nextQuestion.mutate({ sessionId });
-        }, remaining * 1000);
+            // start timer for reconcile
+            const interval = setInterval(() => {
+                setReconcileTimeLeft((prev) => (prev ?? 0) - 1);
+            }, 1000);
+            return () => clearInterval(interval);
+        } else if (timeLeft === 0 && !autoAdvance) {
+            // If manual mode, just clear the timer visual but don't auto-advance
+            // Maybe show "Time's Up - waiting for manual advance"
+        }
+    }, [timeLeft, gameStatus, autoAdvance]);
 
-        return clearTimers;
-    }, [session?.currentQuestionId, status]);
+    useEffect(() => {
+        if (reconcileTimeLeft === 0) {
+            setReconcileTimeLeft(null);
+            if (autoAdvance) {
+                nextQuestion.mutate({ sessionId });
+            }
+        }
+    }, [reconcileTimeLeft, autoAdvance]);
 
-    const totalQuestions = session?.quiz?.questions?.length || 0;
-    const currentQuestionIndex = session?.currentQuestion
-        ? (session.quiz.questions.findIndex((q: any) => q.id === session.currentQuestion?.id) + 1)
-        : 0;
+    // Prevent Tab Close
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (gameStatus === "ACTIVE") {
+                e.preventDefault();
+                e.returnValue = "";
+                return "";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [gameStatus]);
+
+    const nextQuestion = api.session.next.useMutation();
+    const previousQuestion = api.session.previous.useMutation();
+    const endSession = api.session.end.useMutation();
+    const startSession = api.session.start.useMutation();
 
     // Timer color based on time remaining
     const getTimerColor = () => {
         if (timeLeft === null) return "text-teal-500";
+        if (timeLeft <= 0) return "text-destructive";
         if (timeLeft <= 3) return "text-rose-500";
         if (timeLeft <= 5) return "text-amber-500";
         return "text-teal-500";
@@ -104,6 +121,7 @@ export default function AdminSessionPage() {
 
     const getTimerBg = () => {
         if (timeLeft === null) return "from-teal-500/10 to-cyan-500/10";
+        if (timeLeft <= 0) return "from-rose-500/10 to-red-500/10";
         if (timeLeft <= 3) return "from-rose-500/10 to-red-500/10";
         if (timeLeft <= 5) return "from-amber-500/10 to-orange-500/10";
         return "from-teal-500/10 to-cyan-500/10";
@@ -116,6 +134,18 @@ export default function AdminSessionPage() {
     if (!session) {
         return <div className="p-8 text-center text-destructive font-medium">Session not found</div>;
     }
+
+    // Use session totals if hook hasn't loaded yet
+    const totalQs = hookTotalQuestions || session.quiz.questions.length;
+
+    // Status Display
+    // Prefer gameStatus if it's active or ended, but if it's null (initial) or waiting (default), and session says ENDED, trust session.
+    let displayStatus = gameStatus || session.status;
+    if (session.status === "ENDED" && (gameStatus === "WAITING" || gameStatus === null)) {
+        displayStatus = "ENDED";
+    }
+
+    const playersCount = leaderboard.length > 0 ? leaderboard.length : (session.players?.length || 0);
 
     return (
         <div className="min-h-screen">
@@ -158,25 +188,36 @@ export default function AdminSessionPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column: Controls + Timer */}
                     <div className="lg:col-span-2 space-y-6">
+
+                        <KeepAliveManager autoAdvance={autoAdvance} onAutoAdvanceChange={setAutoAdvance} />
+
                         {/* Game Controls */}
                         <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
                             <CardHeader className="pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-xl bg-gradient-to-br from-sky-500/10 to-cyan-500/10">
-                                        <Rocket className="h-5 w-5 text-sky-500" />
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-gradient-to-br from-sky-500/10 to-cyan-500/10">
+                                            <Rocket className="h-5 w-5 text-sky-500" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg">Game Controls</CardTitle>
+                                            <CardDescription>
+                                                {displayStatus === "ACTIVE" && questionIndex > 0
+                                                    ? `Question ${questionIndex} of ${totalQs}`
+                                                    : "Manage the flow of the quiz."}
+                                            </CardDescription>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <CardTitle className="text-lg">Game Controls</CardTitle>
-                                        <CardDescription>
-                                            {status === "ACTIVE" && currentQuestionIndex > 0
-                                                ? `Question ${currentQuestionIndex} of ${totalQuestions}`
-                                                : "Manage the flow of the quiz."}
-                                        </CardDescription>
-                                    </div>
+                                    {isHistory && (
+                                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                            <History className="h-4 w-4" />
+                                            <span className="text-xs font-semibold">Review Mode</span>
+                                        </div>
+                                    )}
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {status === "WAITING" ? (
+                                {displayStatus === "WAITING" ? (
                                     <Button
                                         className="w-full text-lg h-14 font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/20 border-0"
                                         size="lg"
@@ -188,7 +229,7 @@ export default function AdminSessionPage() {
                                 ) : (
                                     <>
                                         {/* Timer */}
-                                        {status === "ACTIVE" && timeLeft !== null && (
+                                        {displayStatus === "ACTIVE" && (timeLeft !== null || reconcileTimeLeft !== null) && (
                                             <div className={cn(
                                                 "flex items-center justify-center gap-4 py-6 rounded-2xl bg-gradient-to-r transition-all duration-500",
                                                 getTimerBg()
@@ -197,28 +238,48 @@ export default function AdminSessionPage() {
                                                 <div className={cn(
                                                     "text-7xl font-mono font-bold tabular-nums transition-colors duration-500",
                                                     getTimerColor(),
-                                                    timeLeft <= 3 && "animate-pulse"
+                                                    ((timeLeft || reconcileTimeLeft) || 0) <= 3 && "animate-pulse"
                                                 )}>
-                                                    {timeLeft}s
+                                                    {((timeLeft || reconcileTimeLeft) || 0)}s
                                                 </div>
+                                                {timeLeft === 0 && !autoAdvance && (
+                                                    <div className="text-xs font-bold uppercase tracking-widest text-destructive animate-pulse absolute mt-20">
+                                                        Time Up - Waiting
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
                                         <div className="grid grid-cols-2 gap-4">
-                                            <Button
-                                                className="w-full text-lg h-12 font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white shadow-lg shadow-sky-500/15 border-0"
-                                                size="lg"
-                                                onClick={() => nextQuestion.mutate({ sessionId })}
-                                                disabled={nextQuestion.isPending || status === "ENDED"}
-                                            >
-                                                <SkipForward className="mr-2 h-5 w-5" /> Next Question
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    className="flex-1 text-base h-12 font-semibold bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0"
+                                                    size="lg"
+                                                    onClick={() => previousQuestion.mutate({ sessionId })}
+                                                    disabled={previousQuestion.isPending || displayStatus === "ENDED" || questionIndex <= 1}
+                                                >
+                                                    <SkipBack className="md:mr-2 h-5 w-5" /> <p className="hidden md:block">Prev</p>
+                                                </Button>
+                                                <Button
+                                                    className="flex-[2] text-lg h-12 font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white shadow-lg shadow-sky-500/15 border-0"
+                                                    size="lg"
+                                                    onClick={() => nextQuestion.mutate({ sessionId })}
+                                                    disabled={nextQuestion.isPending || displayStatus === "ENDED"}
+                                                >
+                                                    <SkipForward className="md:mr-2 h-5 w-5" /> <p className="hidden md:block">Next / Skip</p>
+                                                </Button>
+                                            </div>
+
                                             <Button
                                                 className="w-full text-lg h-12 font-semibold bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 text-white shadow-lg shadow-rose-500/15 border-0"
-                                                onClick={() => endSession.mutate({ sessionId })}
-                                                disabled={endSession.isPending || status === "ENDED"}
+                                                onClick={() => {
+                                                    if (confirm("Are you sure you want to end the session?")) {
+                                                        endSession.mutate({ sessionId });
+                                                    }
+                                                }}
+                                                disabled={endSession.isPending || displayStatus === "ENDED"}
                                             >
-                                                <StopCircle className="mr-2 h-5 w-5" /> End Session
+                                                <StopCircle className="md:mr-2 h-5 w-5" /> <p className="hidden md:block">End Session</p>
                                             </Button>
                                         </div>
                                     </>
@@ -236,11 +297,11 @@ export default function AdminSessionPage() {
                                     <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Status</div>
                                     <div className={cn(
                                         "text-lg font-bold",
-                                        status === "ACTIVE" && "text-emerald-500",
-                                        status === "ENDED" && "text-rose-500",
-                                        status === "WAITING" && "text-amber-500"
+                                        displayStatus === "ACTIVE" && "text-emerald-500",
+                                        displayStatus === "ENDED" && "text-rose-500",
+                                        displayStatus === "WAITING" && "text-amber-500"
                                     )}>
-                                        {status}
+                                        {displayStatus}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -250,7 +311,7 @@ export default function AdminSessionPage() {
                                         <Users className="h-4 w-4 text-sky-500" />
                                     </div>
                                     <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Players</div>
-                                    <div className="text-lg font-bold tabular-nums">{session.players?.length || 0}</div>
+                                    <div className="text-lg font-bold tabular-nums">{playersCount}</div>
                                 </CardContent>
                             </Card>
                             <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -259,7 +320,7 @@ export default function AdminSessionPage() {
                                         <HelpCircle className="h-4 w-4 text-amber-500" />
                                     </div>
                                     <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Questions</div>
-                                    <div className="text-lg font-bold tabular-nums">{currentQuestionIndex}/{totalQuestions}</div>
+                                    <div className="text-lg font-bold tabular-nums">{questionIndex}/{totalQs}</div>
                                 </CardContent>
                             </Card>
                         </div>
@@ -277,52 +338,75 @@ export default function AdminSessionPage() {
                             <CardDescription>Live rankings</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {session.players && session.players.length > 0 ? (
+                            {/* Use real-time leaderboard if available, otherwise session players */}
+                            {(leaderboard.length > 0 ? leaderboard : session.players)?.length > 0 ? (
                                 <div className="space-y-2">
-                                    {session.players.map((player: any, index: number) => (
-                                        <div
-                                            key={player.id}
-                                            className={cn(
-                                                "flex items-center justify-between p-3 rounded-xl border transition-all duration-200 hover:scale-[1.01]",
-                                                index === 0 && "bg-gradient-to-r from-amber-500/10 to-yellow-500/5 border-amber-500/25",
-                                                index === 1 && "bg-gradient-to-r from-slate-400/10 to-slate-300/5 border-slate-400/20",
-                                                index === 2 && "bg-gradient-to-r from-orange-500/10 to-amber-500/5 border-orange-500/20",
-                                                index > 2 && "bg-muted/30 border-border/50"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <span className={cn(
-                                                    "text-lg font-bold w-8 text-center",
-                                                    index === 0 && "text-amber-500",
-                                                    index === 1 && "text-slate-400",
-                                                    index === 2 && "text-orange-500",
-                                                    index > 2 && "text-muted-foreground"
-                                                )}>
-                                                    {index < 3 ? (
-                                                        <Medal className={cn(
-                                                            "h-5 w-5 mx-auto",
-                                                            index === 0 && "text-amber-500",
-                                                            index === 1 && "text-slate-400",
-                                                            index === 2 && "text-orange-500"
-                                                        )} />
-                                                    ) : (
-                                                        `#${index + 1}`
+                                    {(leaderboard.length > 0 ? leaderboard : session.players).map((player: any, index: number) => {
+                                        // Check for offline status (2 mins threshold)
+                                        // Note: session.players might not have lastActive if not in leaderboard view? 
+                                        // But we added lastActive to leaderboard in backend.
+                                        // Session.players from getById includes everything? No, getById needs to select lastActive too.
+                                        // Assuming player.lastActive exists.
+                                        const isOffline = player.lastActive
+                                            ? (Date.now() - new Date(player.lastActive).getTime() > 2 * 60 * 1000)
+                                            : false;
+
+                                        return (
+                                            <div
+                                                key={player.playerId || player.id}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-xl border transition-all duration-200 hover:scale-[1.01]",
+                                                    isOffline ? "bg-muted/40 border-muted opacity-70" : (
+                                                        index === 0 ? "bg-gradient-to-r from-amber-500/10 to-yellow-500/5 border-amber-500/25" :
+                                                            index === 1 ? "bg-gradient-to-r from-slate-400/10 to-slate-300/5 border-slate-400/20" :
+                                                                index === 2 ? "bg-gradient-to-r from-orange-500/10 to-amber-500/5 border-orange-500/20" :
+                                                                    "bg-card border-border/50"
+                                                    )
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={cn(
+                                                        "text-lg font-bold w-8 text-center flex justify-center",
+                                                        index === 0 && "text-amber-500",
+                                                        index === 1 && "text-slate-400",
+                                                        index === 2 && "text-orange-500",
+                                                        index > 2 && "text-muted-foreground"
+                                                    )}>
+                                                        {index < 3 ? (
+                                                            <Medal className={cn(
+                                                                "h-5 w-5",
+                                                                index === 0 && "text-amber-500",
+                                                                index === 1 && "text-slate-400",
+                                                                index === 2 && "text-orange-500"
+                                                            )} />
+                                                        ) : (
+                                                            `#${index + 1}`
+                                                        )}
+                                                    </span>
+                                                    <div>
+                                                        <div className="font-semibold text-sm flex items-center gap-2">
+                                                            {player.name}
+                                                            {isOffline && (
+                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground border px-1.5 py-0.5 rounded-md bg-muted">
+                                                                    Offline
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">{player.class}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-lg tabular-nums">{player.score}</div>
+                                                    {player.answers && (
+                                                        <div className="text-xs text-muted-foreground">
+                                                            <span className="text-emerald-500 font-medium">{player.answers?.filter((a: any) => a.isCorrect).length || 0}</span>
+                                                            /{player.answers?.length || 0} correct
+                                                        </div>
                                                     )}
-                                                </span>
-                                                <div>
-                                                    <div className="font-semibold text-sm">{player.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{player.class}</div>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-lg tabular-nums">{player.score}</div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    <span className="text-emerald-500 font-medium">{player.answers?.filter((a: any) => a.isCorrect).length || 0}</span>
-                                                    /{player.answers?.length || 0} correct
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center py-8">
@@ -337,7 +421,7 @@ export default function AdminSessionPage() {
                 </div>
 
                 {/* Per-Question Breakdown (when session ended) */}
-                {status === "ENDED" && session.players && session.players.length > 0 && (
+                {displayStatus === "ENDED" && session.players && session.players.length > 0 && (
                     <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
                         <CardHeader>
                             <div className="flex items-center gap-3">
@@ -411,3 +495,4 @@ export default function AdminSessionPage() {
         </div>
     );
 }
+

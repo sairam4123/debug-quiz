@@ -4,12 +4,14 @@ import {
     publicProcedure,
     protectedProcedure,
 } from "@mce-quiz/server/api/trpc";
+
 import { TRPCError } from "@trpc/server";
 import { ee, EVENTS } from "@mce-quiz/server/events";
 import { pusher } from "@/server/pusher";
+import type { Player, PrismaClient } from "generated/prisma";
 
 // Helper: fetch full game state for a session
-export async function getSessionGameState(db: any, sessionId: string) {
+export async function getSessionGameState(db: PrismaClient, sessionId: string) {
     const session = await db.gameSession.findUniqueOrThrow({
         where: { id: sessionId },
         include: {
@@ -23,42 +25,109 @@ export async function getSessionGameState(db: any, sessionId: string) {
             },
             players: {
                 orderBy: { score: "desc" },
-                select: { id: true, name: true, class: true, score: true },
+                select: { id: true, name: true, class: true, score: true, lastActive: true },
             },
+
+            currentQuestion: {
+                include: {
+                    options: true
+                }
+            }
         },
     });
 
     let currentQuestion = null;
     let questionIndex = 0;
     const totalQuestions = session.quiz.questions.length;
+    let status = session.status;
+    let effectiveStartTime = session.startTime?.toISOString() ?? null;
 
-    if (session.currentQuestionId) {
-        const idx = session.quiz.questions.findIndex(
-            (q: any) => q.id === session.currentQuestionId
-        );
-        if (idx !== -1) {
-            currentQuestion = session.quiz.questions[idx];
-            questionIndex = idx + 1;
+    // Simplified Logic: State is driven by explicit DB updates, not time
+    if (session.status === "ACTIVE") {
+        currentQuestion = session.currentQuestion;
+        if (currentQuestion) {
+            questionIndex = currentQuestion.order + 1; // Assuming order is 0-based index
+            // If order is distinct from index, we might need to find index in array
+            const idx = session.quiz.questions.findIndex((q: { id: string }) => q.id === currentQuestion!.id);
+            if (idx !== -1) questionIndex = idx + 1;
+
+            effectiveStartTime = session.currentQuestionStartTime?.toISOString() ?? new Date().toISOString();
+        } else {
+            // Should not happen in ACTIVE unless waiting for first Q? 
+            // Stick to what DB says.
         }
+    } else if (session.status === "WAITING") {
+        currentQuestion = null;
+        questionIndex = 0;
+    } else {
+        // ENDED
+        currentQuestion = null;
+        questionIndex = 0;
     }
 
     // Build leaderboard
-    const leaderboard = session.players.map((p: any, i: number) => ({
+    const leaderboard = session.players.map((p, i) => ({
         rank: i + 1,
-        name: p.name as string,
-        class: p.class as string,
-        score: p.score as number,
-        playerId: p.id as string,
+        name: p.name,
+        class: p.class,
+        score: p.score,
+        playerId: p.id,
+        lastActive: p.lastActive ? p.lastActive.toISOString() : null,
     }));
 
+    // Calculate History Mode
+    // We are in history mode if currently active question is BEFORE the highest reached
+    // But now we just move currentQuestionId, so "History" might just be "we rewound".
+    // Let's keep the flag: if currentQuestion.order < highestQuestionOrder
+    const isHistory = currentQuestion && currentQuestion.order < (session.highestQuestionOrder || 0);
+
+    // Calculate Answer Distribution (Only needed for INTERMISSION)
+    let answerDistribution: Record<string, number> | null = null;
+    let correctAnswerId: string | null = null;
+
+    if (session.status === "INTERMISSION" && currentQuestion) {
+        // Find correct option for current question
+        const correctOption = session.quiz.questions
+            .find(q => q.id === currentQuestion!.id)
+            ?.options.find(o => o.isCorrect);
+
+        correctAnswerId = correctOption?.id ?? null;
+
+        // Aggregate answers
+        const answers = await db.answer.groupBy({
+            by: ['selectedOptionId'],
+            where: {
+                questionId: currentQuestion.id,
+                playerId: { in: session.players.map(p => p.id) } // Only current session players
+            },
+            _count: {
+                selectedOptionId: true
+            }
+        });
+
+        answerDistribution = {};
+        answers.forEach((a: { selectedOptionId: string; _count: { selectedOptionId: number; }; }) => {
+            if (a.selectedOptionId) {
+                answerDistribution![a.selectedOptionId] = a._count.selectedOptionId;
+            }
+        });
+    }
+
     return {
-        status: session.status as string,
+        status: status as string,
         currentQuestion,
-        questionStartTime: session.currentQuestionStartTime?.toISOString() ?? null,
+        questionStartTime: effectiveStartTime,
         timeLimit: (currentQuestion?.timeLimit ?? 10) as number,
         questionIndex,
         totalQuestions,
         leaderboard,
+        mode: session.mode,
+        today: true, // Placeholder or logic for "today"
+        isHistory: !!isHistory,
+        serverTime: new Date().toISOString(),
+        highestQuestionOrder: session.highestQuestionOrder ?? 0,
+        answerDistribution,
+        correctAnswerId
     };
 }
 
@@ -117,11 +186,15 @@ export const gameRouter = createTRPCRouter({
                 }
             }
 
-            console.log(`Player joined: ${player.name} (${player.id}) to session ${session.id} status ${session.status}`);
+            console.log(`Player joined: ${player.name} (${player.id}) to session ${session.id} status ${session.status} `);
 
             // Trigger Pusher update
             const state = await getSessionGameState(ctx.db, session.id);
-            await pusher.trigger(`session-${session.id}`, "update", state);
+            try {
+                await pusher.trigger(`session - ${session.id} `, "update", state);
+            } catch (e) {
+                console.error("Failed to trigger Pusher update:", e);
+            }
 
             return {
                 token: player.id,
@@ -135,8 +208,19 @@ export const gameRouter = createTRPCRouter({
     onSessionUpdate: publicProcedure
         .input(z.object({ sessionId: z.string() }))
         .subscription(async function* ({ ctx, input }) {
-            const initialState = await getSessionGameState(ctx.db, input.sessionId);
-            yield initialState;
+            console.log(`[SUBSCRIPTION - START] sessionId = ${input.sessionId} time = ${new Date().toISOString()} `);
+            let initialState: any;
+            try {
+                initialState = await getSessionGameState(ctx.db, input.sessionId);
+                yield initialState;
+            } catch (e) {
+                console.error("Error in onSessionUpdate initial yield:", e);
+                // If initial fetch fails, maybe wait and try once more or just return to let client handle retry (delayed)
+                // But client retries immediately -> spam.
+                // Let's yield null or something? No, type safety.
+                // Throwing here causes the close.
+                throw e;
+            }
 
             let lastQuestionId = initialState.currentQuestion?.id ?? null;
             let lastStatus = initialState.status;
@@ -165,8 +249,11 @@ export const gameRouter = createTRPCRouter({
                         break;
                     }
 
+                    // Dynamic Polling: 3s for ACTIVE, 10s for others to save resources
+                    const currentPollInterval = lastStatus === "ACTIVE" ? 3000 : 10000;
+
                     const now = Date.now();
-                    const msUntilNextSlot = DB_POLL_INTERVAL - (now % DB_POLL_INTERVAL);
+                    const msUntilNextSlot = currentPollInterval - (now % currentPollInterval);
                     await new Promise<void>((resolve) => {
                         resolveWait = resolve;
                         setTimeout(resolve, msUntilNextSlot);
@@ -191,12 +278,13 @@ export const gameRouter = createTRPCRouter({
                         if (state.status === "ENDED") {
                             shouldStop = true;
                         }
-                    } catch {
-                        // DB error
+                    } catch (e) {
+                        console.error("Error in onSessionUpdate poll:", e);
                     }
                 }
             } finally {
                 ee.off(EVENTS.SESSION_UPDATE, onEvent);
+                console.log(`[SUBSCRIPTION - END] sessionId = ${input.sessionId} time = ${new Date().toISOString()} `);
             }
         }),
 
@@ -209,21 +297,23 @@ export const gameRouter = createTRPCRouter({
         }))
         .mutation(async ({ ctx, input }) => {
             const now = Date.now();
+
+            // Fetch session with ALL questions to calculate offsets
             const session = await ctx.db.gameSession.findUniqueOrThrow({
                 where: { id: input.sessionId },
                 include: {
                     quiz: {
                         include: {
                             questions: {
-                                where: { id: input.questionId },
-                                include: { options: true }
+                                include: { options: true },
+                                orderBy: { order: 'asc' }
                             }
                         }
                     }
                 }
             });
 
-            const question = session.quiz.questions[0];
+            const question = session.quiz.questions.find((q: { id: string; }) => q.id === input.questionId);
             if (!question) throw new TRPCError({ code: "NOT_FOUND", message: "Question not found" });
 
             const existingAnswer = await ctx.db.answer.findFirst({
@@ -233,17 +323,38 @@ export const gameRouter = createTRPCRouter({
                 return existingAnswer;
             }
 
-            const option = question.options.find(o => o.id === input.optionId);
+            const option = question.options.find((o: { id: string; }) => o.id === input.optionId);
             if (!option) throw new TRPCError({ code: "NOT_FOUND", message: "Option not found" });
 
-            const isCorrect = option.isCorrect;
-            const questionStartTime = session.currentQuestionStartTime
-                ? new Date(session.currentQuestionStartTime).getTime()
-                : now;
+            // History Mode Check
+            if (question.order < (session.highestQuestionOrder || 0)) {
+                throw new TRPCError({
+                    code: "FORBIDDEN",
+                    message: "Cannot submit answer in History/Review mode."
+                });
+            }
+
+            // Update High-Water Mark Logic
+            if (question.order > (session.highestQuestionOrder || 0)) {
+                await ctx.db.gameSession.update({
+                    where: { id: input.sessionId },
+                    data: { highestQuestionOrder: question.order }
+                });
+            }
+
+            // Verify answering the CURRENT question to ensure timing is correct
+            if (session.currentQuestionId && session.currentQuestionId !== question.id) {
+                // Changing this to just log or ignore might be safer, but for scoring we need accuracy.
+                // If they are answering a different question, we can't score based on currentQuestionStartTime.
+                // But generally clients only show current question.
+            }
+
+            const questionStartTime = session.currentQuestionStartTime ? new Date(session.currentQuestionStartTime).getTime() : now;
 
             const timeTakenMs = Math.max(0, now - questionStartTime);
             const timeLimitMs = (question.timeLimit || 10) * 1000;
 
+            const isCorrect = option.isCorrect;
             let score = 0;
             if (isCorrect) {
                 const baseScore = question.baseScore || 1000;
@@ -270,12 +381,36 @@ export const gameRouter = createTRPCRouter({
             }
 
             // Trigger Pusher update (async to not block response)
-            // We fetch the full state again to broadcast leaderboard changes
-            void getSessionGameState(ctx.db, input.sessionId).then(state => {
-                void pusher.trigger(`session-${input.sessionId}`, "update", state);
+            void getSessionGameState(ctx.db, input.sessionId).then(async (state) => {
+                try {
+                    await pusher.trigger(`session - ${input.sessionId} `, "update", state);
+                } catch (e) {
+                    console.error("Failed to trigger Pusher update:", e);
+                }
             });
 
             return answer;
+        }),
+
+    keepAlive: publicProcedure
+        .input(z.object({ playerId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const player = await ctx.db.player.findUnique({
+                where: { id: input.playerId },
+                select: { lastActive: true }
+            });
+
+            if (player) {
+                const now = new Date();
+                const lastActive = player.lastActive ? player.lastActive.getTime() : 0;
+                if (now.getTime() - lastActive > 30000) {
+                    await ctx.db.player.update({
+                        where: { id: input.playerId },
+                        data: { lastActive: now }
+                    });
+                }
+            }
+            return { success: true };
         }),
 
     getGameState: publicProcedure
@@ -283,10 +418,20 @@ export const gameRouter = createTRPCRouter({
         .query(async ({ ctx, input }) => {
             const player = await ctx.db.player.findUnique({
                 where: { id: input.playerId },
-                select: { sessionId: true },
+                select: { sessionId: true, lastActive: true },
             });
 
             if (!player) return null;
+
+            // Update lastActive on poll (Throttled to 30s)
+            const now = new Date();
+            const lastActive = player.lastActive ? player.lastActive.getTime() : 0;
+            if (now.getTime() - lastActive > 30000) {
+                await ctx.db.player.update({
+                    where: { id: input.playerId },
+                    data: { lastActive: now }
+                }).catch(() => { }); // Ignore errors
+            }
 
             return getSessionGameState(ctx.db, player.sessionId);
         }),

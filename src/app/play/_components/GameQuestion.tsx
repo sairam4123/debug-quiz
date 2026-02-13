@@ -3,7 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { TimerBar } from "./TimerBar";
-import { Zap } from "lucide-react";
+import { Zap, History } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type GameQuestionProps = {
     currentQuestion: any;
@@ -18,6 +19,9 @@ type GameQuestionProps = {
     onOptionClick: (id: string) => void;
     onTimerExpire: () => void;
     sseConnected: boolean;
+    pusherConnected: boolean;
+    isHistory: boolean;
+    clockOffset: number;
 };
 
 export function GameQuestion({
@@ -32,7 +36,10 @@ export function GameQuestion({
     showSplash,
     onOptionClick,
     onTimerExpire,
-    sseConnected
+    sseConnected,
+    pusherConnected,
+    isHistory,
+    clockOffset
 }: GameQuestionProps) {
 
     // Splash Screen
@@ -76,7 +83,15 @@ export function GameQuestion({
             <Card className="w-full max-w-2xl border-border/50 bg-card/80 backdrop-blur-sm">
                 <CardContent className="p-6 space-y-6">
                     {/* Timer progress bar at the top */}
-                    <TimerBar startTime={questionStartTime} timeLimit={timeLimit} onExpire={onTimerExpire} />
+                    <TimerBar startTime={questionStartTime} timeLimit={timeLimit} onExpire={onTimerExpire} clockOffset={clockOffset} />
+
+                    {/* History Mode Banner */}
+                    {isHistory && (
+                        <div className="flex items-center justify-center gap-2 p-2 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                            <History className="h-4 w-4" />
+                            <span className="text-sm font-semibold">Reviewing Past Question (Read-only)</span>
+                        </div>
+                    )}
 
                     {/* If submitted, show hype message only; otherwise show question */}
                     {isSubmitted && hypeMessage ? (
@@ -153,12 +168,14 @@ export function GameQuestion({
                                     <Button
                                         key={idx}
                                         variant={selectedOption === opt.id ? "default" : "outline"}
-                                        className={`h-auto py-4 text-left justify-start text-base whitespace-normal rounded-xl transition-all ${selectedOption === opt.id
-                                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-teal-500 hover:from-teal-600 hover:to-cyan-600"
-                                            : "hover:border-teal-500/40 hover:bg-teal-500/5"
-                                            }`}
+                                        className={cn(
+                                            "h-auto py-4 text-left justify-start text-base whitespace-normal rounded-xl transition-all",
+                                            selectedOption === opt.id
+                                                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-teal-500 hover:from-teal-600 hover:to-cyan-600"
+                                                : "hover:border-teal-500/40 hover:bg-teal-500/5"
+                                        )}
                                         onClick={() => onOptionClick(opt.id)}
-                                        disabled={isSubmitted}
+                                        disabled={isSubmitted || isHistory}
                                     >
                                         {opt.text}
                                     </Button>
@@ -167,10 +184,19 @@ export function GameQuestion({
                         </>
                     )}
 
-                    {!sseConnected && (
-                        <p className="text-xs text-center text-amber-500">
+                    {(!pusherConnected && !sseConnected) ? (
+                        <p className="text-xs text-center text-amber-500 animate-pulse">
                             Reconnecting to live updates...
                         </p>
+                    ) : (
+                        <div className="flex justify-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${pusherConnected
+                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                }`}>
+                                {pusherConnected ? "Live (Pusher)" : "Live (SSE)"}
+                            </span>
+                        </div>
                     )}
                 </CardContent>
             </Card>

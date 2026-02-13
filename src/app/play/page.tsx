@@ -2,12 +2,13 @@
 
 import { useState, useCallback } from "react";
 import { useGameSession } from "./_hooks/useGameSession";
-import { useGameState } from "./_hooks/useGameState";
+import { useGameState } from "@/app/hooks/useGameState";
 import { useGameInteraction } from "./_hooks/useGameInteraction";
 import { GameJoin } from "./_components/GameJoin";
 import { GameLobby } from "./_components/GameLobby";
 import { GameLeaderboard } from "./_components/GameLeaderboard";
 import { GameQuestion } from "./_components/GameQuestion";
+import { IntermissionFlow } from "./_components/IntermissionFlow";
 
 export default function PlayPage() {
     const {
@@ -47,7 +48,13 @@ export default function PlayPage() {
         questionIndex,
         totalQuestions,
         leaderboard,
-        sseConnected
+        sseConnected,
+        pusherConnected,
+        isHistory,
+        clockOffset,
+        answerDistribution,
+        correctAnswerId,
+        isIntermission
     } = useGameState(sessionId, playerId, onNewQuestion);
 
     // Timer expired — show between-question leaderboard
@@ -59,6 +66,8 @@ export default function PlayPage() {
     const handleJoin = (selectedClass: string) => {
         joinSession.mutate({ code, name, class: selectedClass as any });
     };
+
+    console.log(gameStatus, questionStartTime, timeLimit, questionIndex,);
 
     // ==================== RENDER ====================
 
@@ -85,7 +94,8 @@ export default function PlayPage() {
     }
 
     if (gameStatus === "ACTIVE" && currentQuestion) {
-        if (timerExpired && leaderboard.length > 0) {
+        console.log()
+        if (timerExpired && leaderboard.length > 0 && !isHistory) {
             return (
                 <GameLeaderboard
                     leaderboard={leaderboard}
@@ -111,6 +121,21 @@ export default function PlayPage() {
                 onOptionClick={(optId) => submit(currentQuestion.id, optId, questionStartTime, timeLimit)}
                 onTimerExpire={handleTimerExpire}
                 sseConnected={sseConnected}
+                pusherConnected={pusherConnected}
+                isHistory={isHistory}
+                clockOffset={clockOffset}
+            />
+        );
+    }
+
+    if (gameStatus === "INTERMISSION") {
+        return (
+            <IntermissionFlow
+                answerDistribution={answerDistribution || {}}
+                correctAnswerId={correctAnswerId || ""}
+                currentQuestion={currentQuestion}
+                leaderboard={leaderboard}
+                currentUserId={playerId}
             />
         );
     }

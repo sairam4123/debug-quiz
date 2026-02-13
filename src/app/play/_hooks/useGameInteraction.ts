@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { api } from "@mce-quiz/trpc/react";
 import { Zap, Rocket, Flame, Lock, Target, Sparkles, Brain, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -58,7 +58,7 @@ export function useGameInteraction(sessionId: string | null, playerId: string | 
     const submittedRef = useRef(false);
 
     const submitAnswer = api.game.submitAnswer.useMutation({
-        onSuccess: (data, variables) => {
+        onSuccess: () => {
             setIsSubmitted(true);
             submittedRef.current = true;
             const newStreak = answerStreak + 1;
@@ -86,7 +86,7 @@ export function useGameInteraction(sessionId: string | null, playerId: string | 
         });
     };
 
-    const resetForNewQuestion = (keepStreak: boolean) => {
+    const resetForNewQuestion = useCallback((keepStreak: boolean) => {
         setSelectedOption(null);
         setIsSubmitted(false);
         setHypeMessage(null);
@@ -94,7 +94,7 @@ export function useGameInteraction(sessionId: string | null, playerId: string | 
             setAnswerStreak(0);
         }
         submittedRef.current = false;
-    }
+    }, []);
 
     return {
         selectedOption,
