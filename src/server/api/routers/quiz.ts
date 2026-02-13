@@ -2,64 +2,7 @@ import { z } from "zod";
 import {
     createTRPCRouter,
     protectedProcedure,
-    publicProcedure,
 } from "@mce-quiz/server/api/trpc";
-import { TRPCError } from "@trpc/server";
-import { ee, EVENTS } from "@mce-quiz/server/events";
-
-// Shared helper: fetch full game state for a session (used by both polling query and SSE subscription)
-async function getSessionGameState(db: any, sessionId: string) {
-    const session = await db.gameSession.findUniqueOrThrow({
-        where: { id: sessionId },
-        include: {
-            quiz: {
-                include: {
-                    questions: {
-                        include: { options: true },
-                        orderBy: { order: "asc" },
-                    },
-                },
-            },
-            players: {
-                orderBy: { score: "desc" },
-                select: { id: true, name: true, class: true, score: true },
-            },
-        },
-    });
-
-    let currentQuestion = null;
-    let questionIndex = 0;
-    const totalQuestions = session.quiz.questions.length;
-
-    if (session.currentQuestionId) {
-        const idx = session.quiz.questions.findIndex(
-            (q: any) => q.id === session.currentQuestionId
-        );
-        if (idx !== -1) {
-            currentQuestion = session.quiz.questions[idx];
-            questionIndex = idx + 1;
-        }
-    }
-
-    // Build leaderboard (always include so players can see rankings)
-    const leaderboard = session.players.map((p: any, i: number) => ({
-        rank: i + 1,
-        name: p.name as string,
-        class: p.class as string,
-        score: p.score as number,
-        playerId: p.id as string,
-    }));
-
-    return {
-        status: session.status as string,
-        currentQuestion,
-        questionStartTime: session.currentQuestionStartTime?.toISOString() ?? null,
-        timeLimit: (currentQuestion?.timeLimit ?? 10) as number,
-        questionIndex,
-        totalQuestions,
-        leaderboard,
-    };
-}
 
 export const quizRouter = createTRPCRouter({
     create: protectedProcedure
@@ -85,8 +28,6 @@ export const quizRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
-            // Create quiz with questions and options
-            // This will fail type check until prisma format is run
             return ctx.db.quiz.create({
                 data: {
                     title: input.title,
@@ -125,258 +66,120 @@ export const quizRouter = createTRPCRouter({
             });
         }),
 
+    update: protectedProcedure
+        .input(z.object({
+            id: z.string(),
+            title: z.string().min(1),
+            description: z.string().optional(),
+            questions: z.array(z.object({
+                id: z.string().optional(),
+                text: z.string().min(1),
+                type: z.enum(["KNOWLEDGE", "PROGRAM_OUTPUT", "CODE_CORRECTION"]),
+                codeSnippet: z.string().optional(),
+                language: z.string().optional(),
+                timeLimit: z.number().optional(),
+                baseScore: z.number().optional(),
+                options: z.array(z.object({
+                    id: z.string().optional(),
+                    text: z.string().min(1),
+                    isCorrect: z.boolean()
+                })).min(2)
+            })).min(1)
+        }))
+        .mutation(async ({ ctx, input }) => {
+            return ctx.db.$transaction(async (tx) => {
+                const quiz = await tx.quiz.update({
+                    where: { id: input.id },
+                    data: {
+                        title: input.title,
+                        description: input.description,
+                    }
+                });
+
+                const existingQuestions = await tx.question.findMany({
+                    where: { quizId: input.id },
+                    select: { id: true }
+                });
+                const existingQuestionIds = new Set(existingQuestions.map(q => q.id));
+
+                const inputQuestionIds = new Set(
+                    input.questions
+                        .map(q => q.id)
+                        .filter((id): id is string => !!id)
+                );
+
+                const questionsToDelete = existingQuestions.filter(q => !inputQuestionIds.has(q.id));
+
+                if (questionsToDelete.length > 0) {
+                    const deleteIds = questionsToDelete.map(q => q.id);
+
+                    await tx.answer.deleteMany({
+                        where: { questionId: { in: deleteIds } }
+                    });
+
+                    await tx.gameSession.updateMany({
+                        where: { currentQuestionId: { in: deleteIds } },
+                        data: { currentQuestionId: null, currentQuestionStartTime: null }
+                    });
+
+                    await tx.question.deleteMany({
+                        where: { id: { in: deleteIds } }
+                    });
+                }
+
+                for (const [index, q] of input.questions.entries()) {
+                    if (q.id && existingQuestionIds.has(q.id)) {
+                        await tx.option.deleteMany({ where: { questionId: q.id } });
+
+                        await tx.question.update({
+                            where: { id: q.id },
+                            data: {
+                                text: q.text,
+                                type: q.type,
+                                codeSnippet: q.codeSnippet,
+                                language: q.language || "python",
+                                timeLimit: q.timeLimit || 10,
+                                baseScore: q.baseScore || 1000,
+                                order: index,
+                                options: {
+                                    create: q.options.map(o => ({
+                                        text: o.text,
+                                        isCorrect: o.isCorrect
+                                    }))
+                                }
+                            }
+                        });
+                    } else {
+                        await tx.question.create({
+                            data: {
+                                quizId: input.id,
+                                text: q.text,
+                                type: q.type,
+                                codeSnippet: q.codeSnippet,
+                                language: q.language || "python",
+                                timeLimit: q.timeLimit || 10,
+                                baseScore: q.baseScore || 1000,
+                                order: index,
+                                options: {
+                                    create: q.options.map(o => ({
+                                        text: o.text,
+                                        isCorrect: o.isCorrect
+                                    }))
+                                }
+                            }
+                        });
+                    }
+                }
+
+                return quiz;
+            });
+        }),
+
     delete: protectedProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
             return ctx.db.quiz.delete({
                 where: { id: input.id },
             });
-        }),
-
-    joinSession: publicProcedure
-        .input(z.object({
-            code: z.string(),
-            name: z.string(),
-            class: z.enum(["E27", "E29", "E37A", "E37B"])
-        }))
-        .mutation(async ({ ctx, input }) => {
-            const session = await ctx.db.gameSession.findUnique({
-                where: { code: input.code },
-                include: {
-                    quiz: {
-                        include: {
-                            questions: {
-                                include: { options: true }
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (!session) {
-                throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
-            }
-
-            if (session.status !== "WAITING" && session.status !== "ACTIVE") {
-                // Allow joining active sessions too (late joiners)
-                throw new TRPCError({ code: "FORBIDDEN", message: "Session is closed" });
-            }
-
-            let player = await ctx.db.player.findUnique({
-                where: {
-                    sessionId_name: {
-                        sessionId: session.id,
-                        name: input.name
-                    }
-                }
-            });
-
-            if (!player) {
-                player = await ctx.db.player.create({
-                    data: {
-                        name: input.name,
-                        class: input.class,
-                        session: { connect: { id: session.id } },
-                    },
-                });
-            } else {
-                // Update class if re-joining? Or just keep existing? 
-                // Let's update it in case they picked wrong one first time (if they manage to rejoin)
-                if (player.class !== input.class) {
-                    player = await ctx.db.player.update({
-                        where: { id: player.id },
-                        data: { class: input.class }
-                    });
-                }
-            }
-
-            console.log(`Player joined: ${player.name} (${player.id}) to session ${session.id} status ${session.status}`);
-
-            let currentQuestion = null;
-            if (session.currentQuestionId) {
-                currentQuestion = session.quiz.questions.find(q => q.id === session.currentQuestionId);
-            }
-
-            return {
-                token: player.id,
-                playerId: player.id,
-                sessionId: session.id,
-                status: session.status,
-                currentQuestion: currentQuestion
-            };
-        }),
-
-    onSessionUpdate: publicProcedure
-        .input(z.object({ sessionId: z.string() }))
-        .subscription(async function* ({ ctx, input }) {
-            // Yield the current state immediately on connect
-            const initialState = await getSessionGameState(ctx.db, input.sessionId);
-            yield initialState;
-
-            // Track last known state to avoid redundant yields
-            let lastQuestionId = initialState.currentQuestion?.id ?? null;
-            let lastStatus = initialState.status;
-            let lastPlayerCount = initialState.leaderboard.length;
-
-            // Use a hybrid approach:
-            // 1. Listen to EventEmitter for instant updates (works when same process)
-            // 2. Poll DB every 5s as fallback (works across Vercel serverless instances)
-            const DB_POLL_INTERVAL = 5000; // 5 seconds — aligned wall-clock slots
-            const MAX_LIFETIME = 55000;    // Close before Vercel's 60s timeout to avoid ugly errors
-
-            let shouldStop = false;
-            const startTime = Date.now();
-
-            // Promise-based wake mechanism for EventEmitter events
-            let resolveWait: (() => void) | null = null;
-
-            const onEvent = (data: { sessionId: string }) => {
-                if (data.sessionId === input.sessionId) {
-                    if (resolveWait) {
-                        resolveWait();
-                        resolveWait = null;
-                    }
-                }
-            };
-            ee.on(EVENTS.SESSION_UPDATE, onEvent);
-
-            try {
-                while (!shouldStop) {
-                    // Check lifetime
-                    if (Date.now() - startTime > MAX_LIFETIME) {
-                        break; // Let client reconnect
-                    }
-
-                    // Wait for either: EventEmitter event OR next aligned poll slot
-                    // Align to wall-clock boundaries so ALL connections poll at the same time
-                    // e.g., with 5s interval: all poll at t=0, t=5000, t=10000... (epoch ms)
-                    const now = Date.now();
-                    const msUntilNextSlot = DB_POLL_INTERVAL - (now % DB_POLL_INTERVAL);
-                    await new Promise<void>((resolve) => {
-                        resolveWait = resolve;
-                        setTimeout(resolve, msUntilNextSlot);
-                    });
-
-                    // Fetch fresh state from DB
-                    try {
-                        const state = await getSessionGameState(ctx.db, input.sessionId);
-
-                        const currentQId = state.currentQuestion?.id ?? null;
-                        const hasChanged =
-                            currentQId !== lastQuestionId ||
-                            state.status !== lastStatus ||
-                            state.leaderboard.length !== lastPlayerCount;
-
-                        if (hasChanged) {
-                            yield state;
-                            lastQuestionId = currentQId;
-                            lastStatus = state.status;
-                            lastPlayerCount = state.leaderboard.length;
-                        }
-
-                        // Stop if session ended
-                        if (state.status === "ENDED") {
-                            shouldStop = true;
-                        }
-                    } catch {
-                        // DB error — don't crash, just skip this cycle
-                    }
-                }
-            } finally {
-                ee.off(EVENTS.SESSION_UPDATE, onEvent);
-            }
-        }),
-
-    submitAnswer: publicProcedure
-        .input(z.object({
-            sessionId: z.string(),
-            playerId: z.string(),
-            questionId: z.string(),
-            optionId: z.string(),
-        }))
-        .mutation(async ({ ctx, input }) => {
-            const now = Date.now();
-
-            // Get session with currentQuestionStartTime and the question's timeLimit
-            const session = await ctx.db.gameSession.findUniqueOrThrow({
-                where: { id: input.sessionId },
-                include: {
-                    quiz: {
-                        include: {
-                            questions: {
-                                where: { id: input.questionId },
-                                include: { options: true }
-                            }
-                        }
-                    }
-                }
-            });
-
-            const question = session.quiz.questions[0];
-            if (!question) throw new TRPCError({ code: "NOT_FOUND", message: "Question not found" });
-
-            // Check if already answered this question
-            const existingAnswer = await ctx.db.answer.findFirst({
-                where: { playerId: input.playerId, questionId: input.questionId }
-            });
-            if (existingAnswer) {
-                return existingAnswer; // Already answered, return existing
-            }
-
-            const option = question.options.find(o => o.id === input.optionId);
-            if (!option) throw new TRPCError({ code: "NOT_FOUND", message: "Option not found" });
-
-            const isCorrect = option.isCorrect;
-
-            // Server-side time calculation
-            const questionStartTime = session.currentQuestionStartTime
-                ? new Date(session.currentQuestionStartTime).getTime()
-                : now; // fallback
-
-            const timeTakenMs = Math.max(0, now - questionStartTime);
-            const timeLimitMs = (question.timeLimit || 10) * 1000;
-
-            // Score calculation: 60% base + 40% time bonus (using per-question baseScore)
-            let score = 0;
-            if (isCorrect) {
-                const baseScore = question.baseScore || 1000;
-                const timeRatio = Math.min(1, timeTakenMs / timeLimitMs);
-                score = Math.round(baseScore * 0.6 + baseScore * 0.4 * (1 - timeRatio));
-            }
-
-            // Create answer record with score
-            const answer = await ctx.db.answer.create({
-                data: {
-                    playerId: input.playerId,
-                    questionId: input.questionId,
-                    selectedOptionId: input.optionId,
-                    isCorrect,
-                    timeTaken: Math.round(timeTakenMs),
-                    score,
-                }
-            });
-
-            // Update player total score
-            if (score > 0) {
-                await ctx.db.player.update({
-                    where: { id: input.playerId },
-                    data: { score: { increment: score } }
-                });
-            }
-
-            return answer;
-        }),
-
-    getGameState: publicProcedure
-        .input(z.object({ playerId: z.string() }))
-        .query(async ({ ctx, input }) => {
-            const player = await ctx.db.player.findUnique({
-                where: { id: input.playerId },
-                select: { sessionId: true },
-            });
-
-            if (!player) return null;
-
-            return getSessionGameState(ctx.db, player.sessionId);
         }),
 });

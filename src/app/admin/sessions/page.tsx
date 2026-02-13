@@ -13,7 +13,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export default function SessionsPage() {
-    const { data: sessions, isLoading } = api.admin.getSessions.useQuery();
+    const { data: sessions, isLoading } = api.session.getAll.useQuery();
     const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
 
     const filteredSessions = sessions?.filter(session => {

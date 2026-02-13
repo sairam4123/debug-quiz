@@ -17,7 +17,7 @@ export default function AdminSessionPage() {
     const params = useParams();
     const sessionId = params?.sessionId as string;
 
-    const { data: session, isLoading } = api.admin.getSession.useQuery({ sessionId }, {
+    const { data: session, isLoading } = api.session.getById.useQuery({ sessionId }, {
         enabled: !!sessionId,
         refetchInterval: (query) => {
             const data = query.state.data;
@@ -38,14 +38,14 @@ export default function AdminSessionPage() {
         }
     }, [session]);
 
-    const nextQuestion = api.admin.nextQuestion.useMutation();
-    const endSession = api.admin.endSession.useMutation({
+    const nextQuestion = api.session.next.useMutation();
+    const endSession = api.session.end.useMutation({
         onSuccess: () => {
             setStatus("ENDED");
             clearTimers();
         }
     });
-    const startSession = api.admin.startSession.useMutation({
+    const startSession = api.session.start.useMutation({
         onSuccess: () => {
             setStatus("ACTIVE");
         }

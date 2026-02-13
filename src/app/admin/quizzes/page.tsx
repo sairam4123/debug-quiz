@@ -14,20 +14,20 @@ export default function QuizzesPage() {
     const router = useRouter();
     const utils = api.useUtils();
     const { alert, confirm } = useAlert();
-    const { data: quizzes, isLoading } = api.admin.getQuizzes.useQuery();
+    const { data: quizzes, isLoading } = api.quiz.getAll.useQuery();
 
     const deleteQuiz = api.quiz.delete.useMutation({
         onSuccess: () => {
-            utils.admin.getQuizzes.invalidate();
+            utils.quiz.getAll.invalidate();
         },
         onError: async (err) => {
             await alert("Failed to delete quiz: " + err.message, "Error");
         }
     });
 
-    const startQuiz = api.admin.createSession.useMutation({
+    const startQuiz = api.session.create.useMutation({
         onSuccess: (session) => {
-            utils.admin.getQuizzes.invalidate();
+            utils.quiz.getAll.invalidate();
             router.push(`/admin/session/${session.id}`);
         },
         onError: async (err) => {

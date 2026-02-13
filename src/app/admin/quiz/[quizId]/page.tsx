@@ -20,7 +20,7 @@ export default function EditQuizPage() {
     const router = useRouter();
     const { alert, confirm } = useAlert();
 
-    const { data: quiz, isLoading } = api.admin.getQuiz.useQuery({ id: quizId }, {
+    const { data: quiz, isLoading } = api.quiz.getById.useQuery({ id: quizId }, {
         enabled: !!quizId
     });
 
@@ -48,7 +48,7 @@ export default function EditQuizPage() {
         }
     }, [quiz]);
 
-    const updateQuiz = api.admin.updateQuiz.useMutation({
+    const updateQuiz = api.quiz.update.useMutation({
         onSuccess: async () => {
             await alert("Quiz updated successfully!", "Success");
         },
@@ -57,7 +57,7 @@ export default function EditQuizPage() {
         }
     });
 
-    const startSession = api.admin.createSession.useMutation({
+    const startSession = api.session.create.useMutation({
         onSuccess: (session) => {
             router.push(`/admin/session/${session.id}`);
         }

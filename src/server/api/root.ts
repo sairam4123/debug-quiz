@@ -1,6 +1,8 @@
 import { postRouter } from "@mce-quiz/server/api/routers/post";
 import { quizRouter } from "@mce-quiz/server/api/routers/quiz";
 import { adminRouter } from "@mce-quiz/server/api/routers/admin";
+import { gameRouter } from "@mce-quiz/server/api/routers/game";
+import { sessionRouter } from "@mce-quiz/server/api/routers/session";
 import {
   createCallerFactory,
   createTRPCRouter,
@@ -15,6 +17,8 @@ export const appRouter = createTRPCRouter({
   post: postRouter,
   quiz: quizRouter,
   admin: adminRouter,
+  game: gameRouter,
+  session: sessionRouter,
 });
 
 // export type definition of API
