@@ -28,6 +28,7 @@ export default function NewQuizPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [showIntermediateStats, setShowIntermediateStats] = useState(true);
+    const [shuffleQuestions, setShuffleQuestions] = useState(false);
     const [questions, setQuestions] = useState<QuestionData[]>([
         {
             text: "",
@@ -118,10 +119,16 @@ export default function NewQuizPage() {
             title,
             description,
             showIntermediateStats,
+            shuffleQuestions,
             questions: questions.map(q => ({
-                ...q,
+                text: q.text,
+                type: q.type,
+                codeSnippet: q.codeSnippet || undefined,
+                language: q.language || undefined,
                 timeLimit: parseInt(q.timeLimit?.toString() ?? "10"),
                 baseScore: parseInt(q.baseScore?.toString() ?? "1000"),
+                order: q.order ? parseInt(q.order.toString()) : undefined,
+                options: q.options
             }))
         });
     };
@@ -199,6 +206,14 @@ export default function NewQuizPage() {
                             />
                             <Label htmlFor="show-stats">Show Intermediate Stats & Leaderboard</Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                id="shuffle-questions"
+                                checked={shuffleQuestions}
+                                onCheckedChange={setShuffleQuestions}
+                            />
+                            <Label htmlFor="shuffle-questions">Shuffle Questions (Randomize per player)</Label>
+                        </div>
                     </CardContent>
                 </Card>
             )}
@@ -223,65 +238,68 @@ export default function NewQuizPage() {
                         <Plus className="mr-2 h-4 w-4" /> Add Question
                     </Button>
                 </div>
-            )}
+            )
+            }
 
-            {step === 2 && (
-                <div className="space-y-4">
-                    <Card className="border-border/50">
-                        <CardHeader>
-                            <CardTitle>Review</CardTitle>
-                            <CardDescription>Check everything before saving.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Quiz info */}
-                            <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Title</p>
-                                <p className="font-semibold text-lg">{title}</p>
-                                {description && <p className="text-muted-foreground text-sm">{description}</p>}
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Intermediate Stats: <span className="font-medium text-foreground">{showIntermediateStats ? "Enabled" : "Disabled"}</span>
-                                </p>
-                            </div>
+            {
+                step === 2 && (
+                    <div className="space-y-4">
+                        <Card className="border-border/50">
+                            <CardHeader>
+                                <CardTitle>Review</CardTitle>
+                                <CardDescription>Check everything before saving.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Quiz info */}
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Title</p>
+                                    <p className="font-semibold text-lg">{title}</p>
+                                    {description && <p className="text-muted-foreground text-sm">{description}</p>}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Intermediate Stats: <span className="font-medium text-foreground">{showIntermediateStats ? "Enabled" : "Disabled"}</span>
+                                    </p>
+                                </div>
 
-                            {/* Questions summary */}
-                            <div className="space-y-3">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                    {questions.length} Question{questions.length !== 1 ? "s" : ""}
-                                </p>
-                                {questions.map((q, i) => {
-                                    const correctCount = q.options.filter(o => o.isCorrect).length;
-                                    return (
-                                        <div key={i} className="p-4 rounded-xl bg-muted/50 border border-border/50 space-y-2">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex-1">
-                                                    <p className="font-medium text-sm">
-                                                        <span className="text-primary font-bold mr-1.5">Q{i + 1}.</span>
-                                                        {q.text || <span className="text-muted-foreground italic">No text</span>}
-                                                    </p>
-                                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{q.timeLimit ?? 10}s</span>
-                                                        <span className="flex items-center gap-1"><Trophy className="h-3 w-3" />{q.baseScore ?? 1000} pts</span>
-                                                        <span>{q.options.length} options</span>
-                                                        <span>{correctCount} correct</span>
+                                {/* Questions summary */}
+                                <div className="space-y-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                                        {questions.length} Question{questions.length !== 1 ? "s" : ""}
+                                    </p>
+                                    {questions.map((q, i) => {
+                                        const correctCount = q.options.filter(o => o.isCorrect).length;
+                                        return (
+                                            <div key={i} className="p-4 rounded-xl bg-muted/50 border border-border/50 space-y-2">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-sm">
+                                                            <span className="text-primary font-bold mr-1.5">Q{i + 1}.</span>
+                                                            {q.text || <span className="text-muted-foreground italic">No text</span>}
+                                                        </p>
+                                                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                                                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{q.timeLimit ?? 10}s</span>
+                                                            <span className="flex items-center gap-1"><Trophy className="h-3 w-3" />{q.baseScore ?? 1000} pts</span>
+                                                            <span>{q.options.length} options</span>
+                                                            <span>{correctCount} correct</span>
+                                                        </div>
                                                     </div>
+                                                    <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
+                                                        {q.type.replace("_", " ").toLowerCase()}
+                                                    </span>
                                                 </div>
-                                                <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
-                                                    {q.type.replace("_", " ").toLowerCase()}
-                                                </span>
+                                                {q.codeSnippet && (
+                                                    <pre className="text-xs font-mono bg-background p-2 rounded-lg overflow-x-auto border border-border/50">
+                                                        {q.codeSnippet.slice(0, 100)}{q.codeSnippet.length > 100 ? "..." : ""}
+                                                    </pre>
+                                                )}
                                             </div>
-                                            {q.codeSnippet && (
-                                                <pre className="text-xs font-mono bg-background p-2 rounded-lg overflow-x-auto border border-border/50">
-                                                    {q.codeSnippet.slice(0, 100)}{q.codeSnippet.length > 100 ? "..." : ""}
-                                                </pre>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+                                        );
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            }
 
             {/* Navigation */}
             <div className="flex justify-between items-center pt-2">
@@ -313,6 +331,6 @@ export default function NewQuizPage() {
                     </Button>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

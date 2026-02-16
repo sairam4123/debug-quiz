@@ -116,13 +116,15 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
     const pollQuery = api.game.getGameState.useQuery(
         { playerId: playerId || "" },
         {
+            // Enable IF: Player exists, game not ended, AND (SSE disabled AND Pusher disabled/disconnected)
+            // OR if we want to fetch manually (refetch handles this)
             enabled: !!playerId && gameStatus !== "ENDED" && !sseConnected && !pusherConnected,
             refetchInterval: false,
         }
     );
 
     useEffect(() => {
-        console.log(pusherConnected)
+        // console.log(pusherConnected)
         if (!playerId || gameStatus === "ENDED" || pusherConnected) return; // Removed sseConnected check
 
         let timerId: ReturnType<typeof setTimeout>;
@@ -136,13 +138,22 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
         };
         scheduleAlignedPoll();
         return () => clearTimeout(timerId);
-    }, [playerId, gameStatus, pusherConnected]); // Removed sseConnected dependency
+    }, [playerId, gameStatus, pusherConnected]);
 
+    // Sync state from pollQuery (Active for both Polling AND Pusher-triggered refetch)
     useEffect(() => {
-        if (pollQuery.data && (pollQuery.data.questionIndex > questionIndex || pollQuery.data.status !== gameStatus) && !pusherConnected) {
+        if (pollQuery.data) {
+            // Logic to avoid jitter: 
+            // If we have pusher connected, we trust pollQuery more than pusher's canonical question?
+            // YES. pollQuery has personal question.
+
+            // Check if data is actually new to avoid loops?
+            // syncGameState handles some deduping but better check here.
+
+            // Simplest: Always sync if data arrives.
             syncGameState(pollQuery.data as GameState);
         }
-    }, [pollQuery.data, syncGameState, questionIndex, gameStatus]);
+    }, [pollQuery.data, syncGameState]);
 
 
     useEffect(() => {
@@ -157,6 +168,12 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
     useEffect(() => {
         syncGameStateRef.current = syncGameState;
     }, [syncGameState]);
+
+    // Ref for pollQuery to avoid stale closure in Pusher callback
+    const pollQueryRef = useRef(pollQuery);
+    useEffect(() => {
+        pollQueryRef.current = pollQuery;
+    }, [pollQuery]);
 
     useEffect(() => {
         if (!sessionId || gameStatus === "ENDED") return;
@@ -193,8 +210,22 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
 
             channel.bind("update", (data: GameState) => {
                 console.log("[Pusher] Update received:", data);
-                // Use the ref to always get the latest callback without re-binding
-                syncGameStateRef.current(data);
+
+                // CRITICAL: Pusher sends Canonical State (Admin view).
+                // We must NOT blindly use currentQuestion from it if we want per-player randomization.
+
+                // Strategy:
+                // 1. Optimistically update shared state (Status, Leaderboard, Timer, etc.)
+                // 2. If Question ID changed (or is new), TRIGGER REFETCH to get personal question.
+
+                // For now, simpler robust approach:
+                // Just trigger refetch of personal state via TRPC.
+                // The polling query (pollQuery) handles fetching `getGameState({ playerId })`.
+
+                pollQueryRef.current.refetch();
+
+                // Optional: We *could* sync non-question parts immediately for responsiveness,
+                // but `refetch` is fast and safer to avoid partial state inconsistencies.
             });
 
             channel.bind("pusher:subscription_succeeded", () => {

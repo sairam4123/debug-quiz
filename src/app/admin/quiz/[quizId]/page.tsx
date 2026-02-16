@@ -28,6 +28,7 @@ export default function EditQuizPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [showIntermediateStats, setShowIntermediateStats] = useState(true);
+    const [shuffleQuestions, setShuffleQuestions] = useState(false);
     const [questions, setQuestions] = useState<QuestionData[]>([]);
 
     useEffect(() => {
@@ -35,6 +36,7 @@ export default function EditQuizPage() {
             setTitle(quiz.title);
             setDescription(quiz.description || "");
             setShowIntermediateStats(quiz.showIntermediateStats ?? true);
+            setShuffleQuestions(quiz.shuffleQuestions ?? false);
             setQuestions(quiz.questions.map(q => ({
                 id: q.id,
                 text: q.text,
@@ -42,6 +44,7 @@ export default function EditQuizPage() {
                 codeSnippet: q.codeSnippet || undefined,
                 timeLimit: q.timeLimit,
                 baseScore: (q as any).baseScore ?? 1000,
+                order: q.order,
                 options: q.options.map(o => ({
                     id: o.id,
                     text: o.text,
@@ -138,10 +141,17 @@ export default function EditQuizPage() {
             title,
             description,
             showIntermediateStats,
+            shuffleQuestions,
             questions: questions.map(q => ({
-                ...q,
+                id: q.id,
+                text: q.text,
+                type: q.type,
+                codeSnippet: q.codeSnippet || undefined,
+                language: q.language || undefined,
                 timeLimit: parseInt(q.timeLimit?.toString() ?? "10"),
                 baseScore: parseInt(q.baseScore?.toString() ?? "1000"),
+                order: q.order ? parseInt(q.order.toString()) : undefined,
+                options: q.options
             }))
         });
     };
@@ -209,6 +219,7 @@ export default function EditQuizPage() {
                             onChange={(e) => setDescription(e.target.value)}
                         />
                     </div>
+
                     <div className="flex items-center space-x-2">
                         <Switch
                             id="show-stats"
@@ -217,8 +228,16 @@ export default function EditQuizPage() {
                         />
                         <Label htmlFor="show-stats">Show Intermediate Stats & Leaderboard</Label>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="shuffle-questions"
+                            checked={shuffleQuestions}
+                            onCheckedChange={setShuffleQuestions}
+                        />
+                        <Label htmlFor="shuffle-questions">Shuffle Questions (Randomize per player)</Label>
+                    </div>
+                </CardContent >
+            </Card >
 
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -243,6 +262,6 @@ export default function EditQuizPage() {
                     <Plus className="mr-2 h-4 w-4" /> Add Question
                 </Button>
             </div>
-        </div>
+        </div >
     );
 }

@@ -32,6 +32,7 @@ export interface QuestionData {
     language?: string;
     timeLimit?: number | string;
     baseScore?: number | string;
+    order?: number | string; // Allow string for input handling
     options: OptionData[];
 }
 
@@ -59,7 +60,7 @@ export function QuestionEditor({
     return (
         <Card className="border-border/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-base font-semibold">Question {index + 1}</CardTitle>
+                <CardTitle className="text-base font-semibold">Question {index + 1} <span className="text-muted-foreground font-normal ml-2 text-sm">(Order: {question.order ?? index})</span></CardTitle>
                 <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)} className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8">
                     <Trash2 className="h-4 w-4" />
                 </Button>
@@ -75,8 +76,8 @@ export function QuestionEditor({
                     />
                 </div>
 
-                {/* Type + Time Limit + Base Score row */}
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                {/* Type + Order + Time Limit + Base Score row */}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-4">
                     <div className="space-y-2">
                         <Label>Type</Label>
                         <Select
@@ -92,6 +93,22 @@ export function QuestionEditor({
                                 <SelectItem value="CODE_CORRECTION">Code Correction</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-1.5">
+                            Order / Phase
+                        </Label>
+                        <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder={`${index}`}
+                            value={question.order ?? ""}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, "");
+                                updateQuestion(index, "order", val);
+                            }}
+                            className="h-10"
+                        />
                     </div>
                     <div className="space-y-2">
                         <Label className="flex items-center gap-1.5">

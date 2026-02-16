@@ -10,8 +10,68 @@ import { ee, EVENTS } from "@mce-quiz/server/events";
 import { pusher } from "@/server/pusher";
 import type { Player, PrismaClient } from "generated/prisma";
 
+// Helper: Simple seeded random number generator (Mulberry32)
+function seededRandom(seed: number) {
+    return function () {
+        var t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+// Helper: String hash for seeding
+function cyrb53(str: string, seed = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+function getShuffledQuestion(
+    allQuestions: any[],
+    canonicalQuestion: any,
+    playerId: string,
+    sessionId: string
+) {
+    // 1. Identify group of questions with same order
+    const group = allQuestions.filter(q => q.order === canonicalQuestion.order);
+
+    // If only one question in group, no shuffling needed
+    if (group.length <= 1) return canonicalQuestion;
+
+    // 2. Determine index of canonical question within this group
+    // We sort by ID to ensure stable "canonical" ordering ref
+    // (Assuming allQuestions is already sorted by order, we just need stable sort within order)
+    group.sort((a, b) => a.id.localeCompare(b.id));
+
+    const canonicalIndex = group.findIndex(q => q.id === canonicalQuestion.id);
+    if (canonicalIndex === -1) return canonicalQuestion; // Should not happen
+
+    // 3. Shuffle the group deterministically for this player
+    // Seed = SessionID + PlayerID + QuestionOrder
+    const seedString = `${sessionId}-${playerId}-${canonicalQuestion.order}`;
+    const seed = cyrb53(seedString);
+    const random = seededRandom(seed);
+
+    const shuffledGroup = [...group];
+    // Fisher-Yates shuffle
+    for (let i = shuffledGroup.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [shuffledGroup[i], shuffledGroup[j]] = [shuffledGroup[j], shuffledGroup[i]];
+    }
+
+    // 4. Return the question at the canonical index from the shuffled group
+    return shuffledGroup[canonicalIndex] || canonicalQuestion;
+}
+
 // Helper: fetch full game state for a session
-export async function getSessionGameState(db: PrismaClient, sessionId: string) {
+export async function getSessionGameState(db: PrismaClient, sessionId: string, playerId?: string) {
     const session = await db.gameSession.findUniqueOrThrow({
         where: { id: sessionId },
         include: {
@@ -45,11 +105,42 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string) {
     // Simplified Logic: State is driven by explicit DB updates, not time
     if (session.status === "ACTIVE" || session.status === "INTERMISSION") {
         currentQuestion = session.currentQuestion;
+
+        // Apply Personalization if Player ID is present
+        if (currentQuestion && playerId && session.quiz.shuffleQuestions) {
+            currentQuestion = getShuffledQuestion(
+                session.quiz.questions,
+                currentQuestion,
+                playerId,
+                session.id
+            );
+        }
+
         if (currentQuestion) {
-            questionIndex = currentQuestion.order + 1; // Assuming order is 0-based index
-            // If order is distinct from index, we might need to find index in array
-            const idx = session.quiz.questions.findIndex((q: { id: string }) => q.id === currentQuestion!.id);
-            if (idx !== -1) questionIndex = idx + 1;
+            // Recalculate index based on global list (to keep progress bar accurate)
+            // Note: The shuffled question 'replaces' the canonical one in the slot.
+            // So we want the index of the *Canonical* question (or just the current order block).
+            // Actually, for progress bar "5/10", it should be based on how many questions passed.
+            // Since we swap questions *within the same order block*, the index remains the same as canonical.
+
+            // Logic: Question Index = Number of questions with order < current.order + index within current order.
+            // But simplify: find index of CURRENT (possibly shuffled) question in the full list?
+            // No, if we shuffle, Q_A might be at index 5 and Q_B at index 6 in canonical list.
+            // If we swap them for player, when canonical is at 5, player sees Q_B.
+            // Does player think they are at index 5 or 6?
+            // They should think they are at index 5.
+            // So we should return the CANONICAL index.
+
+            // Let's rely on the CANONICAL question for index calculation.
+            const canonicalQ = session.currentQuestion;
+            if (canonicalQ) {
+                const idx = session.quiz.questions.findIndex((q: { id: string }) => q.id === canonicalQ.id);
+                if (idx !== -1) questionIndex = idx + 1;
+            } else {
+                // Fallback to shuffled question index if something is weird
+                const idx = session.quiz.questions.findIndex((q: { id: string }) => q.id === currentQuestion!.id);
+                if (idx !== -1) questionIndex = idx + 1;
+            }
 
             if (session.status === "ACTIVE") {
                 effectiveStartTime = session.currentQuestionStartTime?.toISOString() ?? new Date().toISOString();
@@ -201,19 +292,21 @@ export const gameRouter = createTRPCRouter({
             console.log(`Player joined: ${player.name} (${player.id}) to session ${session.id} status ${session.status} `);
 
             // Trigger Pusher update
-            const state = await getSessionGameState(ctx.db, session.id);
+            const canonicalState = await getSessionGameState(ctx.db, session.id);
             try {
-                await pusher.trigger(`session - ${session.id} `, "update", state);
+                await pusher.trigger(`session-${session.id}`, "update", canonicalState);
             } catch (e) {
                 console.error("Failed to trigger Pusher update:", e);
             }
+
+            const personalState = await getSessionGameState(ctx.db, session.id, player.id);
 
             return {
                 token: player.id,
                 playerId: player.id,
                 sessionId: session.id,
                 status: session.status,
-                currentQuestion: state.currentQuestion
+                currentQuestion: personalState.currentQuestion
             };
         }),
 
@@ -327,6 +420,19 @@ export const gameRouter = createTRPCRouter({
 
             const question = session.quiz.questions.find((q: { id: string; }) => q.id === input.questionId);
             if (!question) throw new TRPCError({ code: "NOT_FOUND", message: "Question not found" });
+
+            // Validate that the question is valid for this player (Randomization Check)
+            if (session.currentQuestionId && session.quiz.shuffleQuestions) {
+                const currentCanonical = session.quiz.questions.find(q => q.id === session.currentQuestionId);
+                if (currentCanonical && question.order === currentCanonical.order) {
+                    // If answering a question in the current "phase" (order group), 
+                    // verify it matches the one assigned to the player.
+                    const assignedQuestion = getShuffledQuestion(session.quiz.questions, currentCanonical, input.playerId, session.id);
+                    if (assignedQuestion.id !== question.id) {
+                        throw new TRPCError({ code: "FORBIDDEN", message: "Invalid question for this player" });
+                    }
+                }
+            }
 
             const existingAnswer = await ctx.db.answer.findFirst({
                 where: { playerId: input.playerId, questionId: input.questionId }
@@ -445,6 +551,6 @@ export const gameRouter = createTRPCRouter({
                 }).catch(() => { }); // Ignore errors
             }
 
-            return getSessionGameState(ctx.db, player.sessionId);
+            return getSessionGameState(ctx.db, player.sessionId, input.playerId);
         }),
 });

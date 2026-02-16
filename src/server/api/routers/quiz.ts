@@ -11,6 +11,7 @@ export const quizRouter = createTRPCRouter({
                 title: z.string().min(1),
                 description: z.string().optional(),
                 showIntermediateStats: z.boolean().optional(),
+                shuffleQuestions: z.boolean().optional(),
                 questions: z.array(
                     z.object({
                         text: z.string().min(1),
@@ -19,6 +20,7 @@ export const quizRouter = createTRPCRouter({
                         language: z.string().optional(),
                         timeLimit: z.number().min(5).optional(),
                         baseScore: z.number().min(100).optional(),
+                        order: z.number().optional(),
                         options: z.array(
                             z.object({
                                 text: z.string(),
@@ -35,6 +37,7 @@ export const quizRouter = createTRPCRouter({
                     title: input.title,
                     description: input.description,
                     showIntermediateStats: input.showIntermediateStats ?? true,
+                    shuffleQuestions: input.shuffleQuestions ?? false,
                     createdBy: { connect: { id: ctx.session.user.id } },
                     questions: {
                         create: input.questions.map((q, index) => ({
@@ -44,7 +47,7 @@ export const quizRouter = createTRPCRouter({
                             language: q.language || "python",
                             timeLimit: q.timeLimit ?? 10,
                             baseScore: q.baseScore ?? 1000,
-                            order: index,
+                            order: q.order ?? index,
                             options: {
                                 create: q.options,
                             },
@@ -76,6 +79,7 @@ export const quizRouter = createTRPCRouter({
             title: z.string().min(1),
             description: z.string().optional(),
             showIntermediateStats: z.boolean().optional(),
+            shuffleQuestions: z.boolean().optional(),
             questions: z.array(z.object({
                 id: z.string().optional(),
                 text: z.string().min(1),
@@ -84,6 +88,7 @@ export const quizRouter = createTRPCRouter({
                 language: z.string().optional(),
                 timeLimit: z.number().optional(),
                 baseScore: z.number().optional(),
+                order: z.number().optional(),
                 options: z.array(z.object({
                     id: z.string().optional(),
                     text: z.string().min(1),
@@ -99,6 +104,7 @@ export const quizRouter = createTRPCRouter({
                         title: input.title,
                         description: input.description,
                         showIntermediateStats: input.showIntermediateStats,
+                        shuffleQuestions: input.shuffleQuestions,
                     }
                 });
 
@@ -146,7 +152,7 @@ export const quizRouter = createTRPCRouter({
                                 language: q.language || "python",
                                 timeLimit: q.timeLimit || 10,
                                 baseScore: q.baseScore || 1000,
-                                order: index,
+                                order: q.order ?? index,
                                 options: {
                                     create: q.options.map(o => ({
                                         text: o.text,
@@ -165,7 +171,7 @@ export const quizRouter = createTRPCRouter({
                                 language: q.language || "python",
                                 timeLimit: q.timeLimit || 10,
                                 baseScore: q.baseScore || 1000,
-                                order: index,
+                                order: q.order ?? index,
                                 options: {
                                     create: q.options.map(o => ({
                                         text: o.text,

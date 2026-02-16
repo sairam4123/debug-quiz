@@ -96,6 +96,7 @@ model Quiz {
   title       String
   description String?
   showIntermediateStats Boolean @default(true)
+  shuffleQuestions      Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
