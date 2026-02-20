@@ -10,6 +10,9 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  trustedOrigins: process.env.NODE_ENV === "development"
+    ? ["http://localhost:3000", "http://192.168.56.1:3000", "http://127.0.0.1:3000"]
+    : [],
 });
 
 export type Session = typeof auth.$Infer.Session;

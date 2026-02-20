@@ -97,6 +97,7 @@ model Quiz {
   description String?
   showIntermediateStats Boolean @default(true)
   shuffleQuestions      Boolean @default(false)
+  randomizeOptions      Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -120,6 +121,7 @@ model Question {
   text        String
   type        QuestionType
   category    String?
+  section     String?
   codeSnippet String? //@db.Text
   language    String       @default("python") // "python", "javascript", etc.
   timeLimit   Int          @default(10) // in seconds

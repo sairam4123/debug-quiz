@@ -8,12 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Save, Play, Loader2, Trash2 } from "lucide-react";
+import { Plus, Save, Play, Loader2, Trash2, Layers } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { QuestionEditor, type QuestionData, type OptionData } from "../new/components/QuestionEditor"; // Reuse component
+import { SectionContainer } from "../components/SectionContainer";
 import { BulkUpload } from "../components/BulkUpload";
 import { Spinner } from "@/components/ui/spinner";
 import { useAlert } from "@/components/providers/alert-provider";
+
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 export default function EditQuizPage() {
     const params = useParams();
@@ -29,6 +45,7 @@ export default function EditQuizPage() {
     const [description, setDescription] = useState("");
     const [showIntermediateStats, setShowIntermediateStats] = useState(true);
     const [shuffleQuestions, setShuffleQuestions] = useState(false);
+    const [randomizeOptions, setRandomizeOptions] = useState(true);
     const [questions, setQuestions] = useState<QuestionData[]>([]);
 
     useEffect(() => {
@@ -37,10 +54,12 @@ export default function EditQuizPage() {
             setDescription(quiz.description || "");
             setShowIntermediateStats(quiz.showIntermediateStats ?? true);
             setShuffleQuestions(quiz.shuffleQuestions ?? false);
+            setRandomizeOptions((quiz as any).randomizeOptions ?? true);
             setQuestions(quiz.questions.map(q => ({
                 id: q.id,
                 text: q.text,
                 type: q.type as any,
+                section: (q as any).section || undefined,
                 codeSnippet: q.codeSnippet || undefined,
                 timeLimit: q.timeLimit,
                 baseScore: (q as any).baseScore ?? 1000,
@@ -78,10 +97,123 @@ export default function EditQuizPage() {
         }
     });
 
+    // --- DnD sensors ---
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const defaultSectionName = title.trim() || "Default Section";
+    const sectionsMap = new Map<string, QuestionData[]>();
+    questions.forEach(q => {
+        const sName = q.section || defaultSectionName;
+        if (!sectionsMap.has(sName)) sectionsMap.set(sName, []);
+        sectionsMap.get(sName)!.push(q);
+    });
+    const sectionEntries = Array.from(sectionsMap.entries());
+
+    function handleDragOver(event: any) {
+        const { active, over } = event;
+        if (!over) return;
+        const activeId = active.id;
+        const overId = over.id;
+
+        if (activeId === overId) return;
+
+        const activeQuestion = questions.find(q => q.id === activeId);
+        if (!activeQuestion) return;
+
+        const overQuestion = questions.find(q => q.id === overId);
+
+        const activeSection = activeQuestion.section || defaultSectionName;
+        const overSection = overQuestion ? (overQuestion.section || defaultSectionName) : String(overId);
+
+        if (activeSection !== overSection) {
+            setQuestions((prev) => {
+                const activeIndex = prev.findIndex((q) => q.id === activeId);
+                const overIndex = overQuestion ? prev.findIndex((q) => q.id === overId) : prev.length;
+
+                if (activeIndex === -1) return prev;
+
+                const newQuestions = [...prev];
+                const moved = newQuestions.splice(activeIndex, 1)[0];
+                if (!moved) return prev;
+
+                moved.section = overSection === defaultSectionName ? "" : overSection; // Update section to match target
+
+                if (!overQuestion) {
+                    const containerItems = prev.filter(q => (q.section || defaultSectionName) === overSection);
+                    let lastIndex = prev.length;
+                    if (containerItems.length > 0) {
+                        const lastItem = containerItems[containerItems.length - 1];
+                        if (lastItem) {
+                            lastIndex = prev.findIndex(q => q.id === lastItem.id) + 1;
+                        }
+                    }
+                    newQuestions.splice(lastIndex, 0, moved);
+                } else {
+                    const isBelowOverItem = over && active.rect.current.translated && active.rect.current.translated.top > over.rect.top + over.rect.height;
+                    const modifier = isBelowOverItem ? 1 : 0;
+                    newQuestions.splice(overIndex + modifier, 0, moved);
+                }
+                return newQuestions;
+            });
+        }
+    }
+
+    function handleDragEnd(event: any) {
+        const { active, over } = event;
+        if (!over) return;
+
+        if (active.id !== over.id) {
+            const overQuestion = questions.find(q => q.id === over.id);
+            if (overQuestion) {
+                setQuestions((items) => {
+                    const oldIndex = items.findIndex(item => item.id === active.id);
+                    const newIndex = items.findIndex(item => item.id === over.id);
+                    return arrayMove(items, oldIndex, newIndex);
+                });
+            }
+        }
+    }
+
+    function handleRenameSection(oldName: string, newName: string) {
+        setQuestions(prev => prev.map(q => {
+            const sName = q.section || defaultSectionName;
+            if (sName === oldName) {
+                const updatedSection = newName === defaultSectionName ? "" : newName;
+                return { ...q, section: updatedSection };
+            }
+            return q;
+        }));
+    }
+
+    const addSection = () => {
+        const newSectionName = `Section ${sectionEntries.length + 1}`;
+        setQuestions([
+            ...questions,
+            {
+                id: Math.random().toString(36).substr(2, 9),
+                text: "",
+                type: "KNOWLEDGE",
+                section: newSectionName,
+                timeLimit: 10,
+                baseScore: 1000,
+                options: [
+                    { text: "", isCorrect: false },
+                    { text: "", isCorrect: false }
+                ]
+            }
+        ]);
+    };
+
     const addQuestion = () => {
         setQuestions([
             ...questions,
             {
+                id: Math.random().toString(36).substr(2, 9),
                 text: "",
                 type: "KNOWLEDGE",
                 timeLimit: 10,
@@ -105,6 +237,16 @@ export default function EditQuizPage() {
     const removeQuestion = (index: number) => {
         if (questions.length === 1) return;
         setQuestions(questions.filter((_, i) => i !== index));
+    };
+
+    const moveQuestionUp = (index: number) => {
+        if (index === 0) return;
+        setQuestions((items) => arrayMove(items, index, index - 1));
+    };
+
+    const moveQuestionDown = (index: number) => {
+        if (index === questions.length - 1) return;
+        setQuestions((items) => arrayMove(items, index, index + 1));
     };
 
     const addOption = (qIndex: number) => {
@@ -142,10 +284,12 @@ export default function EditQuizPage() {
             description,
             showIntermediateStats,
             shuffleQuestions,
+            randomizeOptions,
             questions: questions.map(q => ({
                 id: q.id,
                 text: q.text,
                 type: q.type,
+                section: q.section || undefined,
                 codeSnippet: q.codeSnippet || undefined,
                 language: q.language || undefined,
                 timeLimit: parseInt(q.timeLimit?.toString() ?? "10"),
@@ -161,6 +305,8 @@ export default function EditQuizPage() {
             startSession.mutate({ quizId });
         }
     };
+
+    const existingSections = Array.from(new Set(questions.map(q => q.section).filter(Boolean))) as string[];
 
     if (isLoading) {
         return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
@@ -236,31 +382,72 @@ export default function EditQuizPage() {
                         />
                         <Label htmlFor="shuffle-questions">Shuffle Questions (Randomize per player)</Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="randomize-options"
+                            checked={randomizeOptions}
+                            onCheckedChange={setRandomizeOptions}
+                        />
+                        <Label htmlFor="randomize-options">Randomize Question Options</Label>
+                    </div>
                 </CardContent >
             </Card >
 
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold">Questions</h2>
-                    <BulkUpload onQuestionsImported={(newQuestions) => setQuestions([...questions, ...newQuestions])} />
+                    <BulkUpload onQuestionsImported={(newQuestions) => {
+                        const qs = newQuestions.map(q => ({ ...q, id: Math.random().toString(36).substr(2, 9) }));
+                        setQuestions([...questions, ...qs]);
+                    }} />
                 </div>
 
-                {questions.map((q, index) => (
-                    <QuestionEditor
-                        key={index}
-                        index={index}
-                        question={q}
-                        onUpdate={updateQuestion}
-                        onRemove={removeQuestion}
-                        onOptionUpdate={updateOption}
-                        onAddOption={addOption}
-                        onRemoveOption={removeOption}
-                    />
-                ))}
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                >
+                    {sectionEntries.map(([sName, sQuestions]) => (
+                        <SectionContainer
+                            key={sName}
+                            id={sName}
+                            items={sQuestions.map(q => q.id as string)}
+                            onRename={handleRenameSection}
+                            isDefaultFallback={sName === defaultSectionName}
+                        >
+                            {sQuestions.map((q) => {
+                                const index = questions.findIndex(globalQ => globalQ.id === q.id);
+                                return (
+                                    <QuestionEditor
+                                        key={q.id}
+                                        index={index}
+                                        question={q}
+                                        onUpdate={updateQuestion}
+                                        onRemove={removeQuestion}
+                                        onOptionUpdate={updateOption}
+                                        onAddOption={addOption}
+                                        onRemoveOption={removeOption}
+                                        onMoveUp={moveQuestionUp}
+                                        onMoveDown={moveQuestionDown}
+                                        isFirst={index === 0}
+                                        isLast={index === questions.length - 1}
+                                        existingSections={existingSections}
+                                    />
+                                );
+                            })}
+                        </SectionContainer>
+                    ))}
+                </DndContext>
 
-                <Button variant="outline" className="w-full py-8 border-dashed" onClick={addQuestion}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Question
-                </Button>
+                <div className="flex gap-4">
+                    <Button variant="outline" className="flex-1 py-8 border-dashed border-border/60" onClick={addQuestion}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Question
+                    </Button>
+                    <Button variant="outline" className="flex-1 py-8 border-dashed border-border/60 bg-primary/5 hover:bg-primary/10" onClick={addSection}>
+                        <Layers className="mr-2 h-4 w-4" /> Add Section
+                    </Button>
+                </div>
             </div>
         </div >
     );

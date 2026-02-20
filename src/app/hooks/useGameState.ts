@@ -211,21 +211,12 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
             channel.bind("update", (data: GameState) => {
                 console.log("[Pusher] Update received:", data);
 
-                // CRITICAL: Pusher sends Canonical State (Admin view).
-                // We must NOT blindly use currentQuestion from it if we want per-player randomization.
-
-                // Strategy:
-                // 1. Optimistically update shared state (Status, Leaderboard, Timer, etc.)
-                // 2. If Question ID changed (or is new), TRIGGER REFETCH to get personal question.
-
-                // For now, simpler robust approach:
-                // Just trigger refetch of personal state via TRPC.
-                // The polling query (pollQuery) handles fetching `getGameState({ playerId })`.
-
-                pollQueryRef.current.refetch();
-
-                // Optional: We *could* sync non-question parts immediately for responsiveness,
-                // but `refetch` is fast and safer to avoid partial state inconsistencies.
+                // Admin (no playerId) gets canonical state directly from Pusher. Students refetch for personalized state.
+                if (!playerId) {
+                    syncGameStateRef.current(data);
+                } else {
+                    pollQueryRef.current.refetch();
+                }
             });
 
             channel.bind("pusher:subscription_succeeded", () => {
@@ -263,8 +254,7 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
             }
             setPusherConnected(false);
         };
-        // Removed syncGameState from dependencies to prevent re-init on every update
-    }, [sessionId]);
+    }, [sessionId, playerId]);
 
     // Heartbeat
     const keepAliveMutation = api.game.keepAlive.useMutation();

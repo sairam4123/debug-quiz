@@ -51,7 +51,7 @@ export function GameLobby({ name, leaderboard, playerId }: { name: string, leade
                                     return (
                                         <div key={p.playerId} className="flex flex-col justify-center items-center gap-1 w-18 h-18">
                                             <div
-                                                className={`w-11 h-11 rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center text-white font-bold text-lg shadow-md ${isMe ? "ring-2 ring-teal-400 ring-offset-2 ring-offset-card" : ""}`}
+                                                className={`w-11 h-11 rounded-full bg-linear-to-br ${colorClass} flex items-center justify-center text-white font-bold text-lg shadow-md ${isMe ? "ring-2 ring-teal-400 ring-offset-2 ring-offset-card" : ""}`}
                                             >
                                                 {initial}
                                             </div>

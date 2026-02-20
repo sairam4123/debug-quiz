@@ -116,6 +116,23 @@ export async function getSessionGameState(db: PrismaClient, sessionId: string, p
             );
         }
 
+        // Apply Option Randomization if enabled
+        if (currentQuestion && playerId && session.quiz.randomizeOptions) {
+            const seedString = `${session.id}-${playerId}-${currentQuestion.id}`;
+            const seed = cyrb53(seedString);
+            const random = seededRandom(seed);
+
+            const shuffledOptions = [...currentQuestion.options];
+            for (let i = shuffledOptions.length - 1; i > 0; i--) {
+                const j = Math.floor(random() * (i + 1));
+                [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+            }
+            currentQuestion = {
+                ...currentQuestion,
+                options: shuffledOptions
+            };
+        }
+
         if (currentQuestion) {
             // Recalculate index based on global list (to keep progress bar accurate)
             // Note: The shuffled question 'replaces' the canonical one in the slot.
@@ -501,7 +518,7 @@ export const gameRouter = createTRPCRouter({
             // Trigger Pusher update (async to not block response)
             void getSessionGameState(ctx.db, input.sessionId).then(async (state) => {
                 try {
-                    await pusher.trigger(`session - ${input.sessionId} `, "update", state);
+                    await pusher.trigger(`session-${input.sessionId}`, "update", state);
                 } catch (e) {
                     console.error("Failed to trigger Pusher update:", e);
                 }

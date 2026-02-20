@@ -5,6 +5,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { TimerBar } from "./TimerBar";
 import { Zap, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 type GameQuestionProps = {
     currentQuestion: any;
@@ -16,6 +17,7 @@ type GameQuestionProps = {
     isSubmitted: boolean;
     hypeMessage: any;
     showSplash: boolean;
+    isPending: boolean;
     onOptionClick: (id: string) => void;
     onTimerExpire: () => void;
     sseConnected: boolean;
@@ -36,6 +38,7 @@ export function GameQuestion({
     isSubmitted,
     hypeMessage,
     showSplash,
+    isPending,
     onOptionClick,
     onTimerExpire,
     sseConnected,
@@ -136,13 +139,20 @@ export function GameQuestion({
                     ) : (
                         <>
                             {/* Question header with number */}
-                            <div className="flex items-start justify-between gap-4">
-                                <h2 className="text-xl sm:text-2xl font-bold flex-1">{currentQuestion.text}</h2>
-                                {totalQuestions > 0 && (
-                                    <span className="shrink-0 text-xs font-semibold bg-gradient-to-r from-teal-500/10 to-cyan-500/10 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-full border border-teal-500/20">
-                                        Q{questionIndex}/{totalQuestions}
+                            <div className="flex flex-col gap-1">
+                                {currentQuestion.section && (
+                                    <span className="self-start text-[10px] font-bold tracking-wider uppercase bg-muted/50 text-muted-foreground px-2 py-0.5 rounded-sm">
+                                        {currentQuestion.section}
                                     </span>
                                 )}
+                                <div className="flex items-start justify-between gap-4">
+                                    <h2 className="text-xl sm:text-2xl font-bold flex-1">{currentQuestion.text}</h2>
+                                    {totalQuestions > 0 && (
+                                        <span className="shrink-0 text-xs font-semibold bg-gradient-to-r from-teal-500/10 to-cyan-500/10 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-full border border-teal-500/20">
+                                            Q{questionIndex}/{totalQuestions}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             {currentQuestion.codeSnippet && (
@@ -181,9 +191,12 @@ export function GameQuestion({
                                                 : "hover:border-teal-500/40 hover:bg-teal-500/5"
                                         )}
                                         onClick={() => onOptionClick(opt.id)}
-                                        disabled={isSubmitted || isHistory}
+                                        disabled={isSubmitted || isHistory || isPending}
                                     >
-                                        {opt.text}
+                                        <div className="flex items-center gap-2">
+                                            {selectedOption === opt.id && isPending && <Spinner size="sm" className="mr-2" />}
+                                            {opt.text}
+                                        </div>
                                     </Button>
                                 ))}
                             </div>

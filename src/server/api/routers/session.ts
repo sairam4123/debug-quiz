@@ -273,7 +273,20 @@ export const sessionRouter = createTRPCRouter({
                 }
             });
 
-            return { ...dbSession, ...(session.status !== "ENDED" ? session : {}) };
+            const finalSession = { ...(session.status !== "ENDED" ? session : {}) } as any;
+
+            if (finalSession.players && dbSession.players) {
+                // Merge answers into the session players
+                finalSession.players = finalSession.players.map((p: any) => {
+                    const dbPlayer = dbSession.players.find(dP => dP.id === (p.playerId || p.id));
+                    return {
+                        ...p,
+                        answers: dbPlayer?.answers || []
+                    };
+                });
+            }
+
+            return { ...dbSession, ...finalSession };
 
         }),
 });

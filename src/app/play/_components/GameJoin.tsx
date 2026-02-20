@@ -14,9 +14,12 @@ type GameJoinProps = {
     onNameChange: (val: string) => void;
     onStepChange: (step: 1 | 2) => void;
     onJoin: (cls: string) => void;
+    isLoading?: boolean;
 };
 
-export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepChange, onJoin }: GameJoinProps) {
+import { Spinner } from "@/components/ui/spinner";
+
+export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepChange, onJoin, isLoading }: GameJoinProps) {
     const [selectedClass, setSelectedClass] = useState("");
 
     if (step === 1) {
@@ -126,11 +129,12 @@ export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepC
 
                     <Button
                         onClick={() => onJoin(selectedClass)}
-                        disabled={!name || !selectedClass}
+                        disabled={!name || !selectedClass || isLoading}
                         className="w-full text-lg py-6 font-bold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/20 border-0 mt-2"
                         size="lg"
                     >
-                        Join Game
+                        {isLoading ? <Spinner className="mr-2" size="sm" /> : null}
+                        {isLoading ? "Joining..." : "Join Game"}
                     </Button>
                 </CardContent>
             </Card>

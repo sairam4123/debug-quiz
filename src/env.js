@@ -15,7 +15,7 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    VERCEL_URL: z.string(),
+    VERCEL_URL: z.string().optional(),
     PUSHER_APP_ID: z.string(),
     PUSHER_KEY: z.string(),
     PUSHER_SECRET: z.string(),
@@ -30,7 +30,7 @@ export const env = createEnv({
   client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
     // NEXT_PUBLIC_WS_URL: z.string().url(),
-    NEXT_PUBLIC_SITE_URL: z.string(),
+    NEXT_PUBLIC_SITE_URL: z.string().optional(),
     NEXT_PUBLIC_PUSHER_KEY: z.string(),
     NEXT_PUBLIC_PUSHER_CLUSTER: z.string(),
   },

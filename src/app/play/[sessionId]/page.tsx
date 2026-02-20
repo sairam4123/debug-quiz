@@ -1,24 +1,35 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useGameSession } from "./_hooks/useGameSession";
+import { useState, useCallback, Suspense, useEffect } from "react";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { useGameState } from "@/app/hooks/useGameState";
-import { useGameInteraction } from "./_hooks/useGameInteraction";
-import { GameJoin } from "./_components/GameJoin";
-import { GameLobby } from "./_components/GameLobby";
-import { GameLeaderboard } from "./_components/GameLeaderboard";
-import { GameQuestion } from "./_components/GameQuestion";
-import { IntermissionFlow } from "./_components/IntermissionFlow";
+import { useGameInteraction } from "../_hooks/useGameInteraction";
+import { GameLobby } from "../_components/GameLobby";
+import { GameLeaderboard } from "../_components/GameLeaderboard";
+import { GameQuestion } from "../_components/GameQuestion";
+import { IntermissionFlow } from "../_components/IntermissionFlow";
+import { Spinner } from "@/components/ui/spinner";
 
-export default function PlayPage() {
-    const {
-        name, setName,
-        code, setCode,
-        playerId,
-        sessionId,
-        joinStep, setJoinStep,
-        joinSession
-    } = useGameSession();
+function PlayPageContent() {
+    const params = useParams();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const sessionId = (params?.sessionId as string) || "";
+    const [playerId, setPlayerId] = useState<string | null>(searchParams?.get("playerId") || null);
+
+    useEffect(() => {
+        if (!playerId) {
+            const stored = localStorage.getItem(`quiz_player_${sessionId}`);
+            if (stored) {
+                setPlayerId(stored);
+            } else {
+                router.push("/join");
+            }
+        } else {
+            localStorage.setItem(`quiz_player_${sessionId}`, playerId);
+        }
+    }, [playerId, sessionId, router]);
 
     // Interaction Hook needed first to pass reset function to GameState hook
     const {
@@ -26,15 +37,16 @@ export default function PlayPage() {
         isSubmitted,
         hypeMessage,
         submit,
-        resetForNewQuestion
-    } = useGameInteraction(sessionId, playerId);
+        resetForNewQuestion,
+        isPending
+    } = useGameInteraction(sessionId, playerId || "");
 
     // Question splash screen state
     const [showSplash, setShowSplash] = useState(false);
 
     // Callback when a new question is detected by useGameState
     const onNewQuestion = useCallback(() => {
-        resetForNewQuestion(true); // true = keep streak if applicable, logic handled in hook generally but here updated
+        resetForNewQuestion(true); // true = keep streak if applicable
         setTimerExpired(false);
         setShowSplash(true);
         setTimeout(() => setShowSplash(false), 2000);
@@ -64,25 +76,13 @@ export default function PlayPage() {
         setTimerExpired(true);
     }, []);
 
-    const handleJoin = (selectedClass: string) => {
-        joinSession.mutate({ code, name, class: selectedClass as any });
-    };
-
-    console.log(gameStatus, questionStartTime, timeLimit, questionIndex,);
-
     // ==================== RENDER ====================
 
     if (!playerId) {
         return (
-            <GameJoin
-                step={joinStep}
-                code={code}
-                name={name}
-                onCodeChange={setCode}
-                onNameChange={setName}
-                onStepChange={setJoinStep}
-                onJoin={handleJoin}
-            />
+            <div className="flex h-screen items-center justify-center">
+                <Spinner size="lg" />
+            </div>
         );
     }
 
@@ -90,12 +90,13 @@ export default function PlayPage() {
         return <GameLeaderboard leaderboard={leaderboard} playerId={playerId} isFinal={true} />;
     }
 
+    const me = leaderboard.find((p) => p.playerId === playerId || p.id === playerId);
+
     if (gameStatus === "WAITING") {
-        return <GameLobby name={name} leaderboard={leaderboard} playerId={playerId} />;
+        return <GameLobby name={me?.name || "Player"} leaderboard={leaderboard} playerId={playerId} />;
     }
 
     if (gameStatus === "ACTIVE" && currentQuestion) {
-        console.log()
         if (timerExpired && leaderboard.length > 0 && !isHistory) {
             // Waiting for results
             return (
@@ -120,7 +121,8 @@ export default function PlayPage() {
                 isSubmitted={isSubmitted}
                 hypeMessage={hypeMessage}
                 showSplash={showSplash}
-                onOptionClick={(optId) => submit(currentQuestion.id, optId, questionStartTime, timeLimit)}
+                isPending={isPending}
+                onOptionClick={(optId: string) => submit(currentQuestion.id, optId, questionStartTime, timeLimit)}
                 onTimerExpire={handleTimerExpire}
                 sseConnected={sseConnected}
                 pusherConnected={pusherConnected}
@@ -143,5 +145,15 @@ export default function PlayPage() {
         );
     }
 
-    return null; // Should not happen
+    return null;
 }
+
+
+export default function PlayPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Spinner size="lg" /></div>}>
+            <PlayPageContent />
+        </Suspense>
+    );
+}
+

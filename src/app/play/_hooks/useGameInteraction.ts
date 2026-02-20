@@ -102,6 +102,7 @@ export function useGameInteraction(sessionId: string | null, playerId: string | 
         hypeMessage,
         submit,
         resetForNewQuestion,
-        submittedRef
+        submittedRef,
+        isPending: submitAnswer.isPending
     };
 }

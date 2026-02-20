@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Clock, Trophy } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Plus, Clock, Trophy, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import Editor from "react-simple-code-editor";
 import { highlight, languages } from "prismjs";
@@ -28,6 +31,7 @@ export interface QuestionData {
     id?: string;
     text: string;
     type: QuestionType;
+    section?: string;
     codeSnippet?: string;
     language?: string;
     timeLimit?: number | string;
@@ -44,6 +48,11 @@ interface QuestionEditorProps {
     onOptionUpdate: (qIndex: number, oIndex: number, field: keyof OptionData, value: any) => void;
     onAddOption: (qIndex: number) => void;
     onRemoveOption: (qIndex: number, oIndex: number) => void;
+    onMoveUp?: (index: number) => void;
+    onMoveDown?: (index: number) => void;
+    isFirst?: boolean;
+    isLast?: boolean;
+    existingSections?: string[];
 }
 
 export function QuestionEditor({
@@ -53,27 +62,89 @@ export function QuestionEditor({
     onRemove: removeQuestion,
     onOptionUpdate: updateOption,
     onAddOption: addOption,
-    onRemoveOption: removeOption
+    onRemoveOption: removeOption,
+    onMoveUp,
+    onMoveDown,
+    isFirst,
+    isLast,
+    existingSections = []
 }: QuestionEditorProps) {
     const correctCount = question.options.filter(o => o.isCorrect).length;
 
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: question.id || `temp-${index}` });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 1,
+        opacity: isDragging ? 0.3 : 1,
+    };
+
     return (
-        <Card className="border-border/50">
+        <Card ref={setNodeRef} style={style} className="border-border/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-base font-semibold">Question {index + 1} <span className="text-muted-foreground font-normal ml-2 text-sm">(Order: {question.order ?? index})</span></CardTitle>
-                <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)} className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8">
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <div {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded-md active:cursor-grabbing">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <CardTitle className="text-base font-semibold">Question {index + 1} <span className="text-muted-foreground font-normal ml-2 text-sm">(Order: {question.order ?? index})</span></CardTitle>
+                </div>
+                <div className="flex items-center gap-1">
+                    {onMoveUp && (
+                        <Button variant="ghost" size="icon" onClick={() => onMoveUp(index)} disabled={isFirst} className="h-8 w-8">
+                            <ArrowUp className="h-4 w-4" />
+                        </Button>
+                    )}
+                    {onMoveDown && (
+                        <Button variant="ghost" size="icon" onClick={() => onMoveDown(index)} disabled={isLast} className="h-8 w-8">
+                            <ArrowDown className="h-4 w-4" />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)} className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Question text */}
-                <div className="space-y-2">
-                    <Label>Question Text</Label>
-                    <Input
-                        placeholder="Enter question text..."
-                        value={question.text}
-                        onChange={(e) => updateQuestion(index, "text", e.target.value)}
-                    />
+                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label>Question Text</Label>
+                        <Input
+                            placeholder="Enter question text..."
+                            value={question.text}
+                            onChange={(e) => updateQuestion(index, "text", e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Section (Optional)</Label>
+                        <Input
+                            placeholder="e.g. History, Math..."
+                            value={question.section || ""}
+                            onChange={(e) => updateQuestion(index, "section", e.target.value)}
+                        />
+                        {existingSections.filter(s => s !== question.section).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {existingSections.filter(s => s !== question.section).map(sec => (
+                                    <Badge
+                                        key={sec}
+                                        variant="secondary"
+                                        className="cursor-pointer text-xs hover:bg-secondary/80 font-normal transition-colors"
+                                        onClick={() => updateQuestion(index, "section", sec)}
+                                    >
+                                        + {sec}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Type + Order + Time Limit + Base Score row */}
@@ -207,6 +278,17 @@ export function QuestionEditor({
                                     placeholder={`Option ${oIndex + 1}`}
                                     value={opt.text}
                                     onChange={(e) => updateOption(index, oIndex, "text", e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && oIndex === question.options.length - 1) {
+                                            e.preventDefault();
+                                            addOption(index);
+                                        } else if (e.key === "Backspace" && opt.text === "") {
+                                            e.preventDefault();
+                                            if (question.options.length > 2) {
+                                                removeOption(index, oIndex);
+                                            }
+                                        }
+                                    }}
                                     className={opt.isCorrect ? "border-primary ring-primary ring-1" : ""}
                                 />
                                 <Button

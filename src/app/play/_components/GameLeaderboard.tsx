@@ -41,10 +41,10 @@ export function GameLeaderboard({
                 <Card className="w-full max-w-lg border-border/50 bg-card/80 backdrop-blur-sm relative z-10">
                     <CardContent className="p-6 space-y-6">
                         <div className="text-center space-y-2">
-                            <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-500/15 mb-2">
+                            <div className="inline-flex p-3 rounded-2xl bg-linear-to-br from-amber-500/15 to-orange-500/15 mb-2">
                                 <Trophy className="h-10 w-10 text-amber-500" />
                             </div>
-                            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                            <h1 className="text-3xl font-extrabold bg-linear-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
                                 Quiz Complete!
                             </h1>
                             {myRank && (

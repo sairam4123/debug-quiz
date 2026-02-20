@@ -12,10 +12,12 @@ export const quizRouter = createTRPCRouter({
                 description: z.string().optional(),
                 showIntermediateStats: z.boolean().optional(),
                 shuffleQuestions: z.boolean().optional(),
+                randomizeOptions: z.boolean().optional(),
                 questions: z.array(
                     z.object({
                         text: z.string().min(1),
                         type: z.enum(["PROGRAM_OUTPUT", "CODE_CORRECTION", "KNOWLEDGE"]),
+                        section: z.string().optional(),
                         codeSnippet: z.string().optional(),
                         language: z.string().optional(),
                         timeLimit: z.number().min(5).optional(),
@@ -38,11 +40,13 @@ export const quizRouter = createTRPCRouter({
                     description: input.description,
                     showIntermediateStats: input.showIntermediateStats ?? true,
                     shuffleQuestions: input.shuffleQuestions ?? false,
+                    randomizeOptions: input.randomizeOptions ?? true,
                     createdBy: { connect: { id: ctx.session.user.id } },
                     questions: {
                         create: input.questions.map((q, index) => ({
                             text: q.text,
                             type: q.type,
+                            section: q.section,
                             codeSnippet: q.codeSnippet,
                             language: q.language || "python",
                             timeLimit: q.timeLimit ?? 10,
@@ -80,10 +84,12 @@ export const quizRouter = createTRPCRouter({
             description: z.string().optional(),
             showIntermediateStats: z.boolean().optional(),
             shuffleQuestions: z.boolean().optional(),
+            randomizeOptions: z.boolean().optional(),
             questions: z.array(z.object({
                 id: z.string().optional(),
                 text: z.string().min(1),
                 type: z.enum(["KNOWLEDGE", "PROGRAM_OUTPUT", "CODE_CORRECTION"]),
+                section: z.string().optional(),
                 codeSnippet: z.string().optional(),
                 language: z.string().optional(),
                 timeLimit: z.number().optional(),
@@ -105,6 +111,7 @@ export const quizRouter = createTRPCRouter({
                         description: input.description,
                         showIntermediateStats: input.showIntermediateStats,
                         shuffleQuestions: input.shuffleQuestions,
+                        randomizeOptions: input.randomizeOptions,
                     }
                 });
 
@@ -139,51 +146,66 @@ export const quizRouter = createTRPCRouter({
                     });
                 }
 
-                for (const [index, q] of input.questions.entries()) {
-                    if (q.id && existingQuestionIds.has(q.id)) {
-                        await tx.option.deleteMany({ where: { questionId: q.id } });
+                const existingInputQuestionIds = input.questions
+                    .map(q => q.id)
+                    .filter((id): id is string => !!id && existingQuestionIds.has(id));
 
-                        await tx.question.update({
-                            where: { id: q.id },
-                            data: {
-                                text: q.text,
-                                type: q.type,
-                                codeSnippet: q.codeSnippet,
-                                language: q.language || "python",
-                                timeLimit: q.timeLimit || 10,
-                                baseScore: q.baseScore || 1000,
-                                order: q.order ?? index,
-                                options: {
-                                    create: q.options.map(o => ({
-                                        text: o.text,
-                                        isCorrect: o.isCorrect
-                                    }))
-                                }
-                            }
-                        });
-                    } else {
-                        await tx.question.create({
-                            data: {
-                                quizId: input.id,
-                                text: q.text,
-                                type: q.type,
-                                codeSnippet: q.codeSnippet,
-                                language: q.language || "python",
-                                timeLimit: q.timeLimit || 10,
-                                baseScore: q.baseScore || 1000,
-                                order: q.order ?? index,
-                                options: {
-                                    create: q.options.map(o => ({
-                                        text: o.text,
-                                        isCorrect: o.isCorrect
-                                    }))
-                                }
-                            }
-                        });
-                    }
+                if (existingInputQuestionIds.length > 0) {
+                    await tx.option.deleteMany({
+                        where: { questionId: { in: existingInputQuestionIds } }
+                    });
                 }
 
+                await Promise.all(
+                    input.questions.map(async (q, index) => {
+                        if (q.id && existingQuestionIds.has(q.id)) {
+                            return tx.question.update({
+                                where: { id: q.id },
+                                data: {
+                                    text: q.text,
+                                    type: q.type,
+                                    section: q.section,
+                                    codeSnippet: q.codeSnippet,
+                                    language: q.language || "python",
+                                    timeLimit: q.timeLimit || 10,
+                                    baseScore: q.baseScore || 1000,
+                                    order: q.order ?? index,
+                                    options: {
+                                        create: q.options.map(o => ({
+                                            text: o.text,
+                                            isCorrect: o.isCorrect
+                                        }))
+                                    }
+                                }
+                            });
+                        } else {
+                            return tx.question.create({
+                                data: {
+                                    quizId: input.id,
+                                    text: q.text,
+                                    type: q.type,
+                                    section: q.section,
+                                    codeSnippet: q.codeSnippet,
+                                    language: q.language || "python",
+                                    timeLimit: q.timeLimit || 10,
+                                    baseScore: q.baseScore || 1000,
+                                    order: q.order ?? index,
+                                    options: {
+                                        create: q.options.map(o => ({
+                                            text: o.text,
+                                            isCorrect: o.isCorrect
+                                        }))
+                                    }
+                                }
+                            });
+                        }
+                    })
+                );
+
                 return quiz;
+            }, {
+                maxWait: 10000,
+                timeout: 50000
             });
         }),
 
