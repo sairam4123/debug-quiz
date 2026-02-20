@@ -140,6 +140,28 @@ export default function NewQuizPage() {
         if (!over) return;
 
         if (active.id !== over.id) {
+            // Check if dragging a Section
+            const isSection = active.data.current?.type === "Section";
+
+            if (isSection) {
+                const oldIndex = sectionEntries.findIndex(([name]) => name === active.id);
+                const newIndex = sectionEntries.findIndex(([name]) => name === over.id);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newSectionEntries = arrayMove(sectionEntries, oldIndex, newIndex);
+
+                    // Rebuild questions array completely based on new section order
+                    let newQuestions: QuestionData[] = [];
+                    newSectionEntries.forEach(([_, sQuestions]) => {
+                        newQuestions = [...newQuestions, ...sQuestions];
+                    });
+
+                    setQuestions(newQuestions);
+                }
+                return;
+            }
+
+            // Otherwise dragging a Question
             const overQuestion = questions.find(q => q.id === over.id);
             if (overQuestion) {
                 setQuestions((items) => {
@@ -385,36 +407,38 @@ export default function NewQuizPage() {
                         onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
                     >
-                        {sectionEntries.map(([sName, sQuestions], sIndex) => (
-                            <SectionContainer
-                                key={sName}
-                                id={sName}
-                                items={sQuestions.map(q => q.id as string)}
-                                onRename={handleRenameSection}
-                                isDefaultFallback={sName === defaultSectionName}
-                            >
-                                {sQuestions.map((q, indexInGroup) => {
-                                    const index = questions.findIndex(globalQ => globalQ.id === q.id);
-                                    return (
-                                        <QuestionEditor
-                                            key={q.id}
-                                            index={index}
-                                            question={q}
-                                            onUpdate={updateQuestion}
-                                            onRemove={removeQuestion}
-                                            onOptionUpdate={updateOption}
-                                            onAddOption={addOption}
-                                            onRemoveOption={removeOption}
-                                            onMoveUp={moveQuestionUp}
-                                            onMoveDown={moveQuestionDown}
-                                            isFirst={index === 0}
-                                            isLast={index === questions.length - 1}
-                                            existingSections={existingSections}
-                                        />
-                                    );
-                                })}
-                            </SectionContainer>
-                        ))}
+                        <SortableContext items={sectionEntries.map(s => s[0])} strategy={verticalListSortingStrategy}>
+                            {sectionEntries.map(([sName, sQuestions], sIndex) => (
+                                <SectionContainer
+                                    key={sName}
+                                    id={sName}
+                                    items={sQuestions.map(q => q.id as string)}
+                                    onRename={handleRenameSection}
+                                    isDefaultFallback={sName === defaultSectionName}
+                                >
+                                    {sQuestions.map((q, indexInGroup) => {
+                                        const index = questions.findIndex(globalQ => globalQ.id === q.id);
+                                        return (
+                                            <QuestionEditor
+                                                key={q.id}
+                                                index={index}
+                                                question={q}
+                                                onUpdate={updateQuestion}
+                                                onRemove={removeQuestion}
+                                                onOptionUpdate={updateOption}
+                                                onAddOption={addOption}
+                                                onRemoveOption={removeOption}
+                                                onMoveUp={moveQuestionUp}
+                                                onMoveDown={moveQuestionDown}
+                                                isFirst={index === 0}
+                                                isLast={index === questions.length - 1}
+                                                existingSections={existingSections}
+                                            />
+                                        );
+                                    })}
+                                </SectionContainer>
+                            ))}
+                        </SortableContext>
                     </DndContext>
 
                     <div className="flex gap-4">

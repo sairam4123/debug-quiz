@@ -1,8 +1,9 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { ChevronDown, ChevronUp, Edit2 } from "lucide-react";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ChevronDown, ChevronUp, Edit2, GripVertical } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,26 @@ interface SectionContainerProps {
 }
 
 export function SectionContainer({ id, items, children, onRename, isDefaultFallback }: SectionContainerProps) {
-    const { setNodeRef } = useDroppable({ id });
+    const { setNodeRef: setDroppableNodeRef } = useDroppable({ id });
+    const {
+        attributes,
+        listeners,
+        setNodeRef: setSortableNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id,
+        data: {
+            type: "Section",
+            sectionName: id
+        }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
     const [isExpanded, setIsExpanded] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(id);
@@ -31,9 +51,12 @@ export function SectionContainer({ id, items, children, onRename, isDefaultFallb
     };
 
     return (
-        <div className="border border-border/60 rounded-xl overflow-hidden bg-card/40">
+        <div ref={setSortableNodeRef} style={style} className="border border-border/60 rounded-xl overflow-hidden bg-card/40">
             <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/40">
                 <div className="flex items-center gap-3 flex-1">
+                    <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing hover:bg-muted/50 p-1 rounded-md">
+                        <GripVertical className="h-5 w-5 text-muted-foreground" />
+                    </div>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -89,7 +112,7 @@ export function SectionContainer({ id, items, children, onRename, isDefaultFallb
             </div>
 
             {isExpanded && (
-                <div ref={setNodeRef} className="p-4 space-y-4 min-h-[100px]">
+                <div ref={setDroppableNodeRef} className="p-4 space-y-4 min-h-[100px]">
                     <SortableContext items={items} strategy={verticalListSortingStrategy}>
                         {children}
                     </SortableContext>
