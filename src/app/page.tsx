@@ -37,7 +37,7 @@ export default function Home() {
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto">
           <Link
-            href="/play"
+            href="/join"
             className="group relative inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 px-8 py-4 text-lg font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(20,184,166,0.4)]"
           >
             <Zap className="h-5 w-5" />
