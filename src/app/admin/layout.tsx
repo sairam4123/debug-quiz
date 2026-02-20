@@ -29,29 +29,29 @@ export default function AdminLayout({
             title: "Dashboard",
             href: "/admin/dashboard",
             icon: LayoutDashboard,
-            color: "text-teal-500",
-            activeBg: "bg-teal-500/10",
+            color: "text-primary",
+            activeBg: "bg-primary/10",
         },
         {
             title: "My Quizzes",
             href: "/admin/quizzes",
             icon: List,
-            color: "text-sky-500",
-            activeBg: "bg-sky-500/10",
+            color: "text-primary",
+            activeBg: "bg-primary/10",
         },
         {
             title: "Create Quiz",
             href: "/admin/quiz/new",
             icon: PlusCircle,
-            color: "text-emerald-500",
-            activeBg: "bg-emerald-500/10",
+            color: "text-primary",
+            activeBg: "bg-primary/10",
         },
         {
             title: "Sessions",
             href: "/admin/sessions",
             icon: Gamepad2,
-            color: "text-amber-500",
-            activeBg: "bg-amber-500/10",
+            color: "text-primary",
+            activeBg: "bg-primary/10",
         },
     ];
 
@@ -67,13 +67,13 @@ export default function AdminLayout({
             )}>
                 <div className={cn("p-4 border-b border-border/50 flex items-center gap-2", collapsed ? "justify-center" : "justify-between")}>
                     <Link href="/admin/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-                        <div className="p-1.5 rounded-lg bg-gradient-to-br from-teal-500/15 to-cyan-500/15 shrink-0">
-                            <Code2 className="h-5 w-5 text-teal-500" />
+                        <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
+                            <Code2 className="h-5 w-5 text-primary" />
                         </div>
                         {!collapsed && (
                             <div className="flex items-baseline gap-1.5 overflow-hidden">
                                 <span className="font-bold text-base tracking-tight truncate">DebugQuiz</span>
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded">Admin</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">Admin</span>
                             </div>
                         )}
                     </Link>
@@ -133,7 +133,7 @@ export default function AdminLayout({
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 left-0 right-0 h-14 border-b border-border/50 bg-background/95 backdrop-blur-sm flex items-center justify-between px-4 z-50">
                 <Link href="/admin/dashboard" className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-teal-500" />
+                    <Code2 className="h-4 w-4 text-primary" />
                     <span className="font-bold text-sm">DebugQuiz</span>
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>

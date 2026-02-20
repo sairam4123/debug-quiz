@@ -55,15 +55,15 @@ export function GameQuestion({
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 relative">
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl" />
-                    <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl" />
+                    <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-blue-500/4 blur-3xl" />
+                    <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-amber-500/3 blur-3xl" />
                 </div>
                 <div className="text-center space-y-4 animate-in fade-in zoom-in-95 duration-500 relative z-10">
-                    <div className="inline-flex p-5 rounded-3xl bg-gradient-to-br from-teal-500/15 to-cyan-500/15 mb-2 animate-pulse">
-                        <Zap className="h-14 w-14 text-teal-500" />
+                    <div className="inline-flex p-5 rounded-3xl bg-primary/10 mb-2">
+                        <Zap className="h-14 w-14 text-primary" />
                     </div>
                     <h1 className="text-5xl font-extrabold tracking-tight">
-                        Question <span className="bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">{questionIndex}</span>
+                        Question <span className="text-primary">{questionIndex}</span>
                     </h1>
                     <p className="text-muted-foreground text-lg">{questionType}</p>
                     <div className="flex justify-center gap-1 mt-4">
@@ -71,9 +71,9 @@ export function GameQuestion({
                             <div
                                 key={i}
                                 className={`h-1.5 rounded-full transition-all ${i + 1 < questionIndex
-                                    ? "w-6 bg-teal-500"
+                                    ? "w-6 bg-primary"
                                     : i + 1 === questionIndex
-                                        ? "w-8 bg-gradient-to-r from-teal-500 to-cyan-500 animate-pulse"
+                                        ? "w-8 bg-amber-400 animate-pulse"
                                         : "w-4 bg-muted"
                                     }`}
                             />
@@ -148,7 +148,7 @@ export function GameQuestion({
                                 <div className="flex items-start justify-between gap-4">
                                     <h2 className="text-xl sm:text-2xl font-bold flex-1">{currentQuestion.text}</h2>
                                     {totalQuestions > 0 && (
-                                        <span className="shrink-0 text-xs font-semibold bg-gradient-to-r from-teal-500/10 to-cyan-500/10 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-full border border-teal-500/20">
+                                        <span className="shrink-0 text-xs font-semibold bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20">
                                             Q{questionIndex}/{totalQuestions}
                                         </span>
                                     )}
@@ -187,8 +187,8 @@ export function GameQuestion({
                                         className={cn(
                                             "h-auto py-4 text-left justify-start text-base whitespace-normal rounded-xl transition-all",
                                             selectedOption === opt.id
-                                                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-teal-500 hover:from-teal-600 hover:to-cyan-600"
-                                                : "hover:border-teal-500/40 hover:bg-teal-500/5"
+                                                ? "bg-primary text-white border-primary hover:bg-primary/90"
+                                                : "hover:border-primary/40 hover:bg-primary/5"
                                         )}
                                         onClick={() => onOptionClick(opt.id)}
                                         disabled={isSubmitted || isHistory || isPending}

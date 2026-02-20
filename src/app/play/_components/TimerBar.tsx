@@ -32,10 +32,10 @@ export function TimerBar({ startTime, timeLimit, onExpire, clockOffset }: { star
     }, [startTime, timeLimit, hasFired, onExpire, clockOffset]);
 
     const barColor =
-        progress > 50 ? "bg-gradient-to-r from-teal-500 to-cyan-500" : progress > 20 ? "bg-gradient-to-r from-amber-400 to-amber-500" : "bg-gradient-to-r from-rose-400 to-rose-500";
+        progress > 50 ? "bg-primary" : progress > 20 ? "bg-amber-400" : "bg-rose-500";
 
     const textColor =
-        progress > 50 ? "text-teal-500" : progress > 20 ? "text-amber-500" : "text-rose-500";
+        progress > 50 ? "text-primary" : progress > 20 ? "text-amber-500" : "text-rose-500";
 
     const remainingSeconds = Math.ceil((progress / 100) * timeLimit);
 

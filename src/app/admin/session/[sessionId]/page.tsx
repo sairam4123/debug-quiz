@@ -117,19 +117,19 @@ export default function AdminSessionPage() {
 
     // Timer color based on time remaining
     const getTimerColor = () => {
-        if (timeLeft === null) return "text-teal-500";
+        if (timeLeft === null) return "text-primary";
         if (timeLeft <= 0) return "text-destructive";
         if (timeLeft <= 3) return "text-rose-500";
         if (timeLeft <= 5) return "text-amber-500";
-        return "text-teal-500";
+        return "text-primary";
     };
 
     const getTimerBg = () => {
-        if (timeLeft === null) return "from-teal-500/10 to-cyan-500/10";
+        if (timeLeft === null) return "from-primary/10 to-primary/5";
         if (timeLeft <= 0) return "from-rose-500/10 to-red-500/10";
         if (timeLeft <= 3) return "from-rose-500/10 to-red-500/10";
         if (timeLeft <= 5) return "from-amber-500/10 to-orange-500/10";
-        return "from-teal-500/10 to-cyan-500/10";
+        return "from-primary/10 to-primary/5";
     };
 
     if (isLoading) {
@@ -167,20 +167,20 @@ export default function AdminSessionPage() {
         <div className="min-h-screen">
             {/* Decorative background */}
             <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-teal-500/5 blur-3xl" />
-                <div className="absolute top-1/2 -left-20 w-72 h-72 rounded-full bg-cyan-500/5 blur-3xl" />
-                <div className="absolute bottom-20 right-1/3 w-80 h-80 rounded-full bg-amber-500/5 blur-3xl" />
+                <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-blue-500/4 blur-3xl" />
+                <div className="absolute top-1/2 -left-20 w-72 h-72 rounded-full bg-blue-400/3 blur-3xl" />
+                <div className="absolute bottom-20 right-1/3 w-80 h-80 rounded-full bg-amber-500/4 blur-3xl" />
             </div>
 
             <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 shadow-lg shadow-teal-500/20">
+                        <div className="p-3 rounded-2xl bg-primary">
                             <Sparkles className="h-7 w-7 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400 bg-clip-text text-transparent">
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground">
                                 Session Control
                             </h1>
                             <p className="text-muted-foreground mt-0.5">
@@ -190,17 +190,17 @@ export default function AdminSessionPage() {
                     </div>
                     <div className="flex items-center gap-4">
                         <Link href={`/admin/session/${sessionId}/projector`} target="_blank">
-                            <Button variant="outline" className="gap-2 border-teal-500/20 hover:bg-teal-500/5 transition-colors">
-                                <Presentation className="h-4 w-4 text-teal-500" />
+                            <Button variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 transition-colors">
+                                <Presentation className="h-4 w-4 text-primary" />
                                 <span className="hidden sm:inline-block font-semibold">Projector</span>
                             </Button>
                         </Link>
                         <DownloadResults session={session} />
                         {/* Join Code - Glassmorphic */}
-                        <div className="relative overflow-hidden px-6 py-3 rounded-2xl flex flex-col items-center border border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-cyan-500/5 backdrop-blur-sm">
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-[shimmer_3s_ease-in-out_infinite] bg-[length:200%_100%]" />
+                        <div className="relative overflow-hidden px-6 py-3 rounded-2xl flex flex-col items-center border border-primary/20 bg-primary/5 backdrop-blur-sm">
+                            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-[shimmer_3s_ease-in-out_infinite] bg-[length:200%_100%]" />
                             <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold relative z-10">Join Code</span>
-                            <span className="text-3xl font-mono font-bold bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400 bg-clip-text text-transparent tracking-widest relative z-10">
+                            <span className="text-3xl font-mono font-bold text-primary tracking-widest relative z-10">
                                 {session.code}
                             </span>
                         </div>
@@ -218,8 +218,8 @@ export default function AdminSessionPage() {
                             <CardHeader className="pb-4">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-xl bg-gradient-to-br from-sky-500/10 to-cyan-500/10">
-                                            <Rocket className="h-5 w-5 text-sky-500" />
+                                        <div className="p-2 rounded-xl bg-primary/10">
+                                            <Rocket className="h-5 w-5 text-primary" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg">Game Controls</CardTitle>
@@ -241,7 +241,7 @@ export default function AdminSessionPage() {
                             <CardContent className="space-y-4">
                                 {displayStatus === "WAITING" ? (
                                     <Button
-                                        className="w-full text-lg h-14 font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/20 border-0"
+                                        className="w-full text-lg h-14 font-semibold bg-primary hover:bg-primary/90 text-white border-0"
                                         size="lg"
                                         onClick={() => startSession.mutate({ sessionId })}
                                         disabled={startSession.isPending}
@@ -306,8 +306,8 @@ export default function AdminSessionPage() {
                                                 </Button>
                                                 <Button
                                                     className={cn(
-                                                        "flex-[2] text-lg h-12 font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white shadow-lg shadow-sky-500/15 border-0 transition-all duration-300",
-                                                        activeAnswersCount === playersCount && playersCount > 0 && "ring-2 ring-emerald-400 ring-offset-2 animate-pulse duration-1000 from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                                                        "flex-[2] text-lg h-12 font-semibold bg-primary hover:bg-primary/90 text-white shadow-sm border-0 transition-all duration-300",
+                                                        activeAnswersCount === playersCount && playersCount > 0 && "ring-2 ring-emerald-400 ring-offset-2 animate-pulse duration-1000 bg-emerald-500 hover:bg-emerald-600"
                                                     )}
                                                     size="lg"
                                                     onClick={() => { nextQuestion.mutate({ sessionId }); setReconcileTimeLeft(15); }}
@@ -497,7 +497,7 @@ export default function AdminSessionPage() {
                                                 </th>
                                             ))}
                                             <th className="text-center p-3 font-semibold bg-gradient-to-r from-muted/20 to-muted/40 rounded-tr-lg">
-                                                <span className="bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400 bg-clip-text text-transparent">Total</span>
+                                                <span className="text-primary font-bold">Total</span>
                                             </th>
                                         </tr>
                                     </thead>
@@ -530,7 +530,7 @@ export default function AdminSessionPage() {
                                                     );
                                                 })}
                                                 <td className="text-center p-3">
-                                                    <span className="font-bold text-lg tabular-nums bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400 bg-clip-text text-transparent">
+                                                    <span className="font-bold text-lg tabular-nums text-primary">
                                                         {player.score}
                                                     </span>
                                                 </td>

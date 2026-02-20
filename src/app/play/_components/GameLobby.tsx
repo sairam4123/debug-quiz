@@ -16,20 +16,20 @@ export function GameLobby({ name, leaderboard, playerId }: { name: string, leade
     return (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/3 left-1/4 w-80 h-80 rounded-full bg-teal-500/8 blur-3xl animate-pulse" />
-                <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-cyan-500/6 blur-3xl animate-pulse" />
+                <div className="absolute top-1/3 left-1/4 w-80 h-80 rounded-full bg-blue-500/4 blur-3xl" />
+                <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-amber-500/3 blur-3xl" />
             </div>
 
             <Card className="w-full max-w-md text-center p-6 border-border/50 bg-card/80 backdrop-blur-sm relative z-10">
                 <div className="flex justify-center mb-6">
                     <div className="relative">
-                        <div className="animate-ping absolute inset-0 rounded-full bg-teal-500/20" />
-                        <div className="relative bg-gradient-to-br from-teal-500/15 to-cyan-500/15 p-6 rounded-full">
-                            <Code2 className="h-10 w-10 text-teal-500" />
+                        <div className="animate-ping absolute inset-0 rounded-full bg-primary/15" />
+                        <div className="relative bg-primary/10 p-6 rounded-full">
+                            <Code2 className="h-10 w-10 text-primary" />
                         </div>
                     </div>
                 </div>
-                <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">You're in!</h1>
+                <h1 className="text-2xl font-bold mb-2 text-primary">You're in!</h1>
                 <p className="text-muted-foreground mb-6">Waiting for the host to start...</p>
                 <div className="bg-gradient-to-br from-muted/80 to-muted/50 p-4 rounded-xl border border-border/50">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Player</p>
@@ -51,11 +51,11 @@ export function GameLobby({ name, leaderboard, playerId }: { name: string, leade
                                     return (
                                         <div key={p.playerId} className="flex flex-col justify-center items-center gap-1 w-18 h-18">
                                             <div
-                                                className={`w-11 h-11 rounded-full bg-linear-to-br ${colorClass} flex items-center justify-center text-white font-bold text-lg shadow-md ${isMe ? "ring-2 ring-teal-400 ring-offset-2 ring-offset-card" : ""}`}
+                                                className={`w-11 h-11 rounded-full bg-linear-to-br ${colorClass} flex items-center justify-center text-white font-bold text-lg shadow-md ${isMe ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-card" : ""}`}
                                             >
                                                 {initial}
                                             </div>
-                                            <span className={`text-xs truncate w-full text-center ${isMe ? "font-semibold text-teal-500" : "text-muted-foreground"}`}>
+                                            <span className={`text-xs truncate w-full text-center ${isMe ? "font-semibold text-amber-500" : "text-muted-foreground"}`}>
                                                 {isMe ? "You" : p.name}
                                             </span>
                                         </div>

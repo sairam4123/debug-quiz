@@ -61,7 +61,7 @@ export function IntermissionFlow({
                     >
                         <div className="">
                             <div className="text-center mb-6">
-                                <h2 className="text-3xl font-bold bg-linear-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                                <h2 className="text-3xl font-bold text-foreground">
                                     Leaderboard
                                 </h2>
                             </div>

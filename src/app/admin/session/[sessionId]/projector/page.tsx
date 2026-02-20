@@ -71,11 +71,11 @@ export default function ProjectorViewPage() {
     }, [activeStartTime, activeStatus, activeTimeLimit]);
 
     const getTimerColor = () => {
-        if (timeLeft === null) return "text-teal-500";
+        if (timeLeft === null) return "text-primary";
         if (timeLeft <= 0) return "text-destructive";
         if (timeLeft <= 3) return "text-rose-500";
         if (timeLeft <= 5) return "text-amber-500";
-        return "text-teal-500";
+        return "text-primary";
     };
 
     if (isLoading) {
@@ -90,16 +90,16 @@ export default function ProjectorViewPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 relative overflow-hidden bg-background">
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl animate-pulse" />
-                    <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl animate-pulse" />
+                    <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-500/4 blur-3xl" />
+                    <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-amber-500/3 blur-3xl" />
                 </div>
 
                 <div className="z-10 text-center space-y-12">
                     <div className="space-y-4">
-                        <div className="inline-flex p-4 rounded-3xl bg-linear-to-br from-teal-500 to-cyan-500 shadow-xl shadow-teal-500/20 mb-4">
+                        <div className="inline-flex p-4 rounded-3xl bg-primary shadow-xl mb-4">
                             <Sparkles className="h-16 w-16 text-white" />
                         </div>
-                        <h1 className="text-6xl font-extrabold tracking-tight bg-linear-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">
+                        <h1 className="text-6xl font-extrabold tracking-tight text-foreground">
                             {session.quiz.title}
                         </h1>
                         <p className="text-2xl text-muted-foreground">Join the quiz now!</p>
@@ -109,7 +109,7 @@ export default function ProjectorViewPage() {
                         <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-[shimmer_3s_ease-in-out_infinite] bg-size-[200%_100%]" />
                         <div className="relative z-10 space-y-4">
                             <p className="text-xl uppercase tracking-widest text-muted-foreground font-semibold">Join Code</p>
-                            <p className="text-8xl font-mono font-bold bg-linear-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent tracking-widest">
+                            <p className="text-8xl font-mono font-bold text-primary tracking-widest">
                                 {session.code}
                             </p>
                         </div>
@@ -117,8 +117,8 @@ export default function ProjectorViewPage() {
 
                     <div className="flex flex-col items-center gap-4">
                         <div className="flex items-center gap-4 text-3xl font-bold bg-background/50 backdrop-blur-sm px-8 py-4 rounded-full border border-border/50 shadow-lg">
-                            <Users className="h-8 w-8 text-sky-500" />
-                            <span><span className="text-sky-500">{playersCount}</span> Players Joined</span>
+                            <Users className="h-8 w-8 text-primary" />
+                            <span><span className="text-primary">{playersCount}</span> Players Joined</span>
                         </div>
                         <p className="text-muted-foreground animate-pulse text-xl">Waiting for host to start...</p>
                     </div>
@@ -134,15 +134,15 @@ export default function ProjectorViewPage() {
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-4 relative bg-background">
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl opacity-50" />
-                        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl opacity-50" />
+                        <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-blue-500/4 blur-3xl" />
+                        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-amber-500/3 blur-3xl" />
                     </div>
                     <div className="text-center space-y-4 animate-in fade-in zoom-in-95 duration-500 relative z-10">
-                        <div className="inline-flex p-5 rounded-3xl bg-linear-to-br from-teal-500/15 to-cyan-500/15 mb-6 animate-pulse">
-                            <Zap className="h-16 w-16 text-teal-500" />
+                        <div className="inline-flex p-5 rounded-3xl bg-primary/10 mb-6">
+                            <Zap className="h-16 w-16 text-primary" />
                         </div>
                         <h1 className="text-6xl md:text-8xl font-extrabold tracking-tight">
-                            Question <span className="bg-linear-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">{questionIndex}</span>
+                            Question <span className="text-primary">{questionIndex}</span>
                         </h1>
                         <p className="text-muted-foreground text-3xl mt-4">{questionType}</p>
                         <div className="flex justify-center gap-2 mt-12">
@@ -150,9 +150,9 @@ export default function ProjectorViewPage() {
                                 <div
                                     key={i}
                                     className={`h-2 rounded-full transition-all ${i + 1 < questionIndex
-                                        ? "w-8 bg-teal-500"
+                                        ? "w-8 bg-primary"
                                         : i + 1 === questionIndex
-                                            ? "w-16 bg-linear-to-r from-teal-500 to-cyan-500 animate-pulse"
+                                            ? "w-16 bg-amber-400 animate-pulse"
                                             : "w-6 bg-muted"
                                         }`}
                                 />
@@ -166,7 +166,7 @@ export default function ProjectorViewPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 relative overflow-hidden bg-background">
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-teal-500/5 blur-3xl" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-blue-500/3 blur-3xl" />
                 </div>
 
                 <div className="z-10 w-full max-w-5xl space-y-16 mt-[-10vh]">

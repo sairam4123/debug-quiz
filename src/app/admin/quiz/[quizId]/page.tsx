@@ -339,20 +339,25 @@ export default function EditQuizPage() {
     }
 
     return (
-        <div className="container mx-auto p-6 space-y-8 max-w-4xl">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gradient">Edit Quiz</h1>
-                <div className="flex space-x-2">
-                    <Button variant="outline" onClick={handleStartSession} disabled={startSession.isPending}>
-                        <Play className="mr-2 h-4 w-4" /> Start Session
+        <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+            {/* ── Page header ── */}
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Edit Quiz</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">{quiz.title}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={handleStartSession} disabled={startSession.isPending}>
+                        <Play className="mr-1.5 h-3.5 w-3.5" /> Start Session
                     </Button>
-                    <Button onClick={handleSave} disabled={updateQuiz.isPending}>
-                        {updateQuiz.isPending ? <Spinner className="mr-2" size="sm" /> : <Save className="mr-2 h-4 w-4" />}
-                        Save Changes
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-white border-0" onClick={handleSave} disabled={updateQuiz.isPending}>
+                        {updateQuiz.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+                        Save
                     </Button>
                     <Button
-                        variant="destructive"
+                        variant="ghost"
                         size="icon"
+                        className="h-9 w-9 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
                         onClick={async () => {
                             if (await confirm("Are you sure you want to delete this quiz? This action cannot be undone.")) {
                                 deleteQuiz.mutate({ id: quizId });

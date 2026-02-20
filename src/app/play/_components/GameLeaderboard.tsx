@@ -34,8 +34,8 @@ export function GameLeaderboard({
 
                 {/* Decorative bg */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-amber-500/8 blur-3xl" />
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-teal-500/6 blur-3xl" />
+                    <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/4 blur-3xl" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-amber-500/3 blur-3xl" />
                 </div>
 
                 <Card className="w-full max-w-lg border-border/50 bg-card/80 backdrop-blur-sm relative z-10">
@@ -44,12 +44,12 @@ export function GameLeaderboard({
                             <div className="inline-flex p-3 rounded-2xl bg-linear-to-br from-amber-500/15 to-orange-500/15 mb-2">
                                 <Trophy className="h-10 w-10 text-amber-500" />
                             </div>
-                            <h1 className="text-3xl font-extrabold bg-linear-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                            <h1 className="text-3xl font-extrabold text-foreground">
                                 Quiz Complete!
                             </h1>
                             {myRank && (
                                 <p className="text-lg text-muted-foreground">
-                                    You finished <span className="font-bold text-teal-500">#{myRank.rank}</span> with <span className="font-bold text-teal-500">{myRank.score}</span> pts
+                                    You finished <span className="font-bold text-amber-500">#{myRank.rank}</span> with <span className="font-bold text-amber-500">{myRank.score}</span> pts
                                 </p>
                             )}
                         </div>
@@ -71,7 +71,7 @@ export function GameLeaderboard({
                                                 : entry.rank === 3
                                                     ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
                                                     : isMe
-                                                        ? "bg-teal-500/10 border-teal-500/20"
+                                                        ? "bg-amber-500/10 border-amber-500/20"
                                                         : "bg-muted/50 border-transparent";
                                         return (
                                             <motion.div
@@ -85,9 +85,9 @@ export function GameLeaderboard({
                                             >
                                                 <RankIcon rank={entry.rank} />
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
+                                                    <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-amber-500" : ""}`}>
                                                         {entry.name}
-                                                        {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
+                                                        {isMe && <User className="h-3 w-3 inline text-amber-500/60" />}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">{entry.class}</p>
                                                 </div>
@@ -112,8 +112,8 @@ export function GameLeaderboard({
     return (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-amber-500/8 blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-teal-500/8 blur-3xl" />
+                <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-blue-500/4 blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-amber-500/3 blur-3xl" />
             </div>
 
             <Card className="w-full max-w-lg border-border/50 bg-card/80 backdrop-blur-sm relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -125,7 +125,7 @@ export function GameLeaderboard({
                         <h2 className="text-xl font-bold">Live Standings</h2>
                         {myEntry && (
                             <p className="text-sm text-muted-foreground">
-                                You&apos;re <span className="font-bold text-teal-500">#{myEntry.rank}</span> with <span className="font-bold text-teal-500">{myEntry.score}</span> pts
+                                You&apos;re <span className="font-bold text-amber-500">#{myEntry.rank}</span> with <span className="font-bold text-amber-500">{myEntry.score}</span> pts
                             </p>
                         )}
                     </div>
@@ -141,7 +141,7 @@ export function GameLeaderboard({
                                         : entry.rank === 3
                                             ? "bg-gradient-to-r from-amber-700/10 to-amber-600/10 border-amber-600/20"
                                             : isMe
-                                                ? "bg-teal-500/10 border-teal-500/20"
+                                                ? "bg-amber-500/10 border-amber-500/20"
                                                 : "bg-muted/50 border-transparent";
                                 return (
                                     <motion.div
@@ -155,9 +155,9 @@ export function GameLeaderboard({
                                     >
                                         <RankIcon rank={entry.rank} />
                                         <div className="flex-1 min-w-0">
-                                            <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-teal-500" : ""}`}>
+                                            <p className={`font-semibold truncate flex items-center gap-1 text-sm ${isMe ? "text-amber-500" : ""}`}>
                                                 {entry.name}
-                                                {isMe && <User className="h-3 w-3 inline text-teal-500/60" />}
+                                                {isMe && <User className="h-3 w-3 inline text-amber-500/60" />}
                                             </p>
                                         </div>
                                         <span className="font-bold tabular-nums">{entry.score}</span>

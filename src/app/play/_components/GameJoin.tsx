@@ -26,18 +26,18 @@ export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepC
         return (
             <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-4 relative">
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-40 -left-20 w-96 h-96 rounded-full bg-teal-500/8 blur-3xl" />
-                    <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-cyan-500/6 blur-3xl" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-amber-500/5 blur-3xl" />
+                    <div className="absolute -top-40 -left-20 w-96 h-96 rounded-full bg-blue-500/4 blur-3xl" />
+                    <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-blue-400/4 blur-3xl" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-amber-500/3 blur-3xl" />
                 </div>
 
                 <div className="text-center space-y-2 relative z-10">
                     <div className="flex items-center justify-center gap-2 mb-3">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500/15 to-cyan-500/15 border border-teal-500/20">
-                            <Code2 className="h-6 w-6 text-teal-500" />
+                        <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                            <Code2 className="h-6 w-6 text-primary" />
                         </div>
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">
+                    <h1 className="text-4xl font-extrabold tracking-tight text-primary">
                         Debug Quiz
                     </h1>
                     <p className="text-muted-foreground">Enter code to join a game</p>
@@ -62,7 +62,7 @@ export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepC
                         <Button
                             onClick={() => onStepChange(2)}
                             disabled={!code || code.length < 4}
-                            className="w-full text-lg py-6 font-bold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/20 border-0 gap-2"
+                            className="w-full text-lg py-6 font-bold bg-primary hover:bg-primary/90 text-white border-0 gap-2"
                             size="lg"
                         >
                             Next
@@ -130,7 +130,7 @@ export function GameJoin({ step, code, name, onCodeChange, onNameChange, onStepC
                     <Button
                         onClick={() => onJoin(selectedClass)}
                         disabled={!name || !selectedClass || isLoading}
-                        className="w-full text-lg py-6 font-bold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/20 border-0 mt-2"
+                        className="w-full text-lg py-6 font-bold bg-primary hover:bg-primary/90 text-white border-0 mt-2"
                         size="lg"
                     >
                         {isLoading ? <Spinner className="mr-2" size="sm" /> : null}
