@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Crown, Medal, Star, BarChart3, RotateCcw, User } from "lucide-react";
+import { Trophy, Crown, Medal, Star, BarChart3, User } from "lucide-react";
 import { Confetti } from "@/components/ui/confetti";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -101,13 +101,6 @@ export function GameLeaderboard({
                             </div>
                         </div>
 
-                        <Button
-                            onClick={() => window.location.reload()}
-                            className="w-full gap-2 h-11 font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/15 border-0"
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                            Play Again
-                        </Button>
                     </CardContent>
                 </Card>
             </div>

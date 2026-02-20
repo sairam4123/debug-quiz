@@ -5,8 +5,9 @@ import { api } from "@mce-quiz/trpc/react";
 import { Button } from "@/components/ui/button";
 import {
     Rocket, SkipForward, StopCircle, Trophy, BarChart3, Medal,
-    Users, CircleDot, HelpCircle, Timer, Sparkles, SkipBack, History, Check
+    Users, CircleDot, HelpCircle, Timer, Sparkles, SkipBack, History, Check, Presentation, ExternalLink
 } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -188,6 +189,12 @@ export default function AdminSessionPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
+                        <Link href={`/admin/session/${sessionId}/projector`} target="_blank">
+                            <Button variant="outline" className="gap-2 border-teal-500/20 hover:bg-teal-500/5 transition-colors">
+                                <Presentation className="h-4 w-4 text-teal-500" />
+                                <span className="hidden sm:inline-block font-semibold">Projector</span>
+                            </Button>
+                        </Link>
                         <DownloadResults session={session} />
                         {/* Join Code - Glassmorphic */}
                         <div className="relative overflow-hidden px-6 py-3 rounded-2xl flex flex-col items-center border border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-cyan-500/5 backdrop-blur-sm">

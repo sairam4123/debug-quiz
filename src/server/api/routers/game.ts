@@ -515,14 +515,19 @@ export const gameRouter = createTRPCRouter({
                 });
             }
 
-            // Trigger Pusher update (async to not block response)
-            void getSessionGameState(ctx.db, input.sessionId).then(async (state) => {
-                try {
-                    await pusher.trigger(`session-${input.sessionId}`, "update", state);
-                } catch (e) {
-                    console.error("Failed to trigger Pusher update:", e);
+            // Trigger lightweight Pusher update for submissions
+            const currentAnswers = await ctx.db.answer.count({
+                where: {
+                    questionId: input.questionId,
+                    player: { sessionId: input.sessionId }
                 }
             });
+
+            try {
+                await pusher.trigger(`session-${input.sessionId}`, "answer-submitted", { answersCount: currentAnswers });
+            } catch (e) {
+                console.error("Failed to trigger Pusher update:", e);
+            }
 
             return answer;
         }),

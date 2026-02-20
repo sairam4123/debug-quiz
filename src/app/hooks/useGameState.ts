@@ -219,6 +219,14 @@ export function useGameState(sessionId: string | null, playerId: string | null, 
                 }
             });
 
+            channel.bind("answer-submitted", (data: { answersCount: number }) => {
+                console.log("[Pusher] Answer submitted update:", data);
+                // Both admin and students can simply update the answersCount without refetching everything.
+                if (mounted) {
+                    setAnswersCount(data.answersCount);
+                }
+            });
+
             channel.bind("pusher:subscription_succeeded", () => {
                 console.log("[Pusher] Connected to channel");
                 if (mounted) setPusherConnected(true);
