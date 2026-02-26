@@ -20,7 +20,7 @@ export function QuestionView({ question, onSubmit, isSubmitted }: QuestionViewPr
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-muted/50 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen select-none bg-muted/50 p-4">
             <Card className="w-full max-w-2xl">
                 <CardContent className="p-6 space-y-6">
                     <div className="space-y-4">

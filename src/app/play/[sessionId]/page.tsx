@@ -9,6 +9,7 @@ import { GameLeaderboard } from "../_components/GameLeaderboard";
 import { GameQuestion } from "../_components/GameQuestion";
 import { IntermissionFlow } from "../_components/IntermissionFlow";
 import { Spinner } from "@/components/ui/spinner";
+import { api } from "@mce-quiz/trpc/react";
 
 function PlayPageContent() {
     const params = useParams();
@@ -67,14 +68,58 @@ function PlayPageContent() {
         answerDistribution,
         correctAnswerId,
         isIntermission,
-        supportsIntermission
+        supportsIntermission,
+        antiTabSwitchEnabled
     } = useGameState(sessionId, playerId, onNewQuestion);
+
+    const reportTabEvent = api.game.reportTabEvent.useMutation();
 
     // Timer expired — show between-question leaderboard
     const [timerExpired, setTimerExpired] = useState(false);
     const handleTimerExpire = useCallback(() => {
         setTimerExpired(true);
     }, []);
+
+    useEffect(() => {
+        if (!antiTabSwitchEnabled || !playerId || gameStatus === "ENDED") return;
+
+        let lastVisibilityState = document.visibilityState === "hidden" ? "hidden" : "visible";
+        let lastSentAt = 0;
+
+        const sendEvent = (state: "hidden" | "visible" | "blur" | "focus") => {
+            const now = Date.now();
+            if (now - lastSentAt < 750) return; // throttle to avoid spam
+            lastSentAt = now;
+
+            reportTabEvent.mutate({
+                sessionId,
+                playerId,
+                state,
+                userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            });
+        };
+
+        const handleVisibilityChange = () => {
+            const state = document.visibilityState === "hidden" ? "hidden" : "visible";
+            if (state !== lastVisibilityState) {
+                lastVisibilityState = state;
+                sendEvent(state);
+            }
+        };
+
+        const handleBlur = () => sendEvent("blur");
+        const handleFocus = () => sendEvent("focus");
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("blur", handleBlur);
+        window.addEventListener("focus", handleFocus);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("blur", handleBlur);
+            window.removeEventListener("focus", handleFocus);
+        };
+    }, [antiTabSwitchEnabled, gameStatus, playerId, reportTabEvent, sessionId]);
 
     // ==================== RENDER ====================
 

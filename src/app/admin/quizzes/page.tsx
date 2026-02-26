@@ -80,7 +80,7 @@ export default function QuizzesPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {quizzes?.map((quiz) => (
+                        {quizzes?.map((quiz) => (   
                             <Card key={quiz.id} className="group border-border/50 bg-card hover:shadow-md hover:border-primary/25 transition-all duration-150 overflow-hidden flex flex-col">
                                 <CardContent className="p-5 flex flex-col gap-4 flex-1">
                                     {/* Title + description */}

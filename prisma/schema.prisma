@@ -92,14 +92,15 @@ model Verification {
 // --- Quiz App Models ---
 
 model Quiz {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  showIntermediateStats Boolean @default(true)
-  shuffleQuestions      Boolean @default(false)
-  randomizeOptions      Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  showIntermediateStats Boolean  @default(true)
+  shuffleQuestions      Boolean  @default(false)
+  randomizeOptions      Boolean  @default(true)
+  antiTabSwitchEnabled  Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   createdBy   User   @relation(fields: [createdById], references: [id])
   createdById String
@@ -165,25 +166,26 @@ enum GameMode {
 }
 
 model GameSession {
-  id        String     @id @default(cuid())
-  code      String     @unique // 6-digit join code
-  status    GameStatus @default(WAITING)
-  mode      GameMode   @default(TOURNAMENT)
-  highestQuestionOrder Int @default(0)
-  startTime DateTime?
-  endTime   DateTime?
+  id                   String     @id @default(cuid())
+  code                 String     @unique // 6-digit join code
+  status               GameStatus @default(WAITING)
+  mode                 GameMode   @default(TOURNAMENT)
+  highestQuestionOrder Int        @default(0)
+  startTime            DateTime?
+  endTime              DateTime?
 
   quiz   Quiz   @relation(fields: [quizId], references: [id])
   quizId String
 
   players Player[]
 
-  currentQuestion   Question? @relation(fields: [currentQuestionId], references: [id])
-  currentQuestionId String?
+  currentQuestion          Question? @relation(fields: [currentQuestionId], references: [id])
+  currentQuestionId        String?
   currentQuestionStartTime DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tabEvents TabEvent[]
 
   @@index([quizId])
   @@map("game_session")
@@ -202,6 +204,8 @@ model Player {
 
   joinedAt   DateTime @default(now())
   lastActive DateTime @default(now())
+
+  tabEvents TabEvent[]
 
   @@unique([sessionId, name]) // Unique name per session
   @@map("player")
@@ -226,4 +230,19 @@ model Answer {
   @@index([playerId])
   @@index([questionId])
   @@map("answer")
+}
+
+model TabEvent {
+  id        String      @id @default(cuid())
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+  player    Player?     @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  playerId  String?
+  eventType String
+  details   Json?
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([playerId])
+  @@map("tab_event")
 }
