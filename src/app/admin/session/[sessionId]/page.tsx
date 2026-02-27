@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { api } from "@mce-quiz/trpc/react";
+import { api, type RouterOutputs } from "@mce-quiz/trpc/react";
 import { Button } from "@/components/ui/button";
 import {
   Rocket,
@@ -38,14 +38,14 @@ import { cn } from "@/lib/utils";
 import { useGameState } from "@/app/hooks/useGameState";
 import { KeepAliveManager } from "@/app/admin/components/KeepAliveManager";
 
-type TabEventEntry = {
-  id: string;
-  playerId?: string | null;
-  playerName: string;
-  playerClass?: string | null;
-  eventType: string;
-  createdAt: string;
-};
+type SessionByIdOutput = RouterOutputs["session"]["getById"];
+type TabEventEntry = RouterOutputs["game"]["getTabEvents"][number];
+type GameStateOutput = NonNullable<RouterOutputs["game"]["getGameState"]>;
+type LiveLeaderboardEntry = GameStateOutput["leaderboard"][number];
+type PlayerWithAnswers = NonNullable<SessionByIdOutput>["players"][number];
+type SessionQuestion =
+  NonNullable<SessionByIdOutput>["quiz"]["questions"][number];
+type PlayerAnswer = PlayerWithAnswers["answers"][number];
 
 export default function AdminSessionPage() {
   const params = useParams();
@@ -222,18 +222,19 @@ export default function AdminSessionPage() {
     highestQuestionOrder || session.highestQuestionOrder || 0;
   const activeAnswersCount = answersCount || session.answersCount || 0;
 
-  // Merge Leaderboard with answers from TRPC since Pusher doesn't send answers array
-  const activeLeaderboard = [
-    ...(leaderboard.length > 0 ? leaderboard : session.players),
-  ].map((p) => {
-    const sourcePlayer = session.players.find(
-      (sp: any) => sp.id === (p.playerId || p.id),
-    );
-    return {
-      ...p,
-      answers: sourcePlayer?.answers || p.answers || [],
-    };
-  });
+  const sessionPlayers: PlayerWithAnswers[] = session.players;
+  type DisplayPlayer =
+    | PlayerWithAnswers
+    | (LiveLeaderboardEntry & { answers?: PlayerWithAnswers["answers"] });
+
+  const activeLeaderboard: DisplayPlayer[] =
+    leaderboard.length > 0
+      ? leaderboard.map((p) => ({
+          ...p,
+          answers:
+            sessionPlayers.find((sp) => sp.id === p.playerId)?.answers ?? [],
+        }))
+      : sessionPlayers;
 
   // Status Display
   // Prefer gameStatus if it's active or ended, but if it's null (initial) or waiting (default), and session says ENDED, trust session.
@@ -246,7 +247,7 @@ export default function AdminSessionPage() {
   }
 
   const playersCount =
-    leaderboard.length > 0 ? leaderboard.length : session.players?.length || 0;
+    leaderboard.length > 0 ? leaderboard.length : sessionPlayers.length;
 
   return (
     <div className="min-h-screen">
@@ -614,7 +615,7 @@ export default function AdminSessionPage() {
               {/* Use real-time leaderboard if available, otherwise session players */}
               {activeLeaderboard?.length > 0 ? (
                 <div className="space-y-2">
-                  {activeLeaderboard.map((player: any, index: number) => {
+                  {activeLeaderboard.map((player, index) => {
                     // Check for offline status (2 mins threshold)
                     // Note: session.players might not have lastActive if not in leaderboard view?
                     // But we added lastActive to leaderboard in backend.
@@ -685,8 +686,9 @@ export default function AdminSessionPage() {
                           {player.answers && (
                             <div className="text-muted-foreground text-xs">
                               <span className="font-medium text-emerald-500">
-                                {player.answers?.filter((a: any) => a.isCorrect)
-                                  .length || 0}
+                                {(player.answers ?? []).filter(
+                                  (a: PlayerAnswer) => a.isCorrect,
+                                ).length || 0}
                               </span>
                               /{player.answers?.length || 0} correct
                             </div>
@@ -738,29 +740,31 @@ export default function AdminSessionPage() {
                         <th className="text-muted-foreground from-muted/80 to-muted/40 rounded-tl-lg bg-gradient-to-r p-3 text-left font-semibold">
                           Player
                         </th>
-                        {session.quiz.questions.map((q: any, i: number) => (
-                          <th
-                            key={q.id}
-                            className="text-muted-foreground from-muted/40 to-muted/20 min-w-[80px] bg-gradient-to-r p-3 text-center font-semibold"
-                          >
-                            Q{i + 1}
-                          </th>
-                        ))}
+                        {session.quiz.questions.map(
+                          (q: SessionQuestion, i: number) => (
+                            <th
+                              key={q.id}
+                              className="text-muted-foreground from-muted/40 to-muted/20 min-w-[80px] bg-gradient-to-r p-3 text-center font-semibold"
+                            >
+                              Q{i + 1}
+                            </th>
+                          ),
+                        )}
                         <th className="from-muted/20 to-muted/40 rounded-tr-lg bg-gradient-to-r p-3 text-center font-semibold">
                           <span className="text-primary font-bold">Total</span>
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {session.players.map((player: any) => (
+                      {session.players.map((player) => (
                         <tr
                           key={player.id}
                           className="border-border/30 hover:bg-muted/30 border-b transition-colors"
                         >
                           <td className="p-3 font-medium">{player.name}</td>
-                          {session.quiz.questions.map((q: any) => {
+                          {session.quiz.questions.map((q: SessionQuestion) => {
                             const answer = player.answers?.find(
-                              (a: any) => a.questionId === q.id,
+                              (a: PlayerAnswer) => a.questionId === q.id,
                             );
                             return (
                               <td key={q.id} className="p-3 text-center">

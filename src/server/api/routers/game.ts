@@ -38,6 +38,10 @@ function cyrb53(str: string, seed = 0) {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 }
 
+type SessionWithRelations = Awaited<
+  ReturnType<typeof fetchSessionWithRelations>
+>;
+
 function getShuffledQuestion(
   allQuestions: any[],
   canonicalQuestion: any,
@@ -75,46 +79,55 @@ function getShuffledQuestion(
   return shuffledGroup[canonicalIndex] || canonicalQuestion;
 }
 
+// Centralized include so we can reuse the same shape for polling and mutations
+const sessionGameStateInclude = {
+  quiz: {
+    include: {
+      questions: {
+        include: { options: true },
+        orderBy: { order: "asc" as const },
+      },
+    },
+  },
+  players: {
+    orderBy: { score: "desc" as const },
+    select: {
+      id: true,
+      name: true,
+      class: true,
+      score: true,
+      lastActive: true,
+    },
+  },
+
+  currentQuestion: {
+    include: {
+      options: true,
+    },
+  },
+} as const;
+
+function fetchSessionWithRelations(db: PrismaClient, sessionId: string) {
+  return db.gameSession.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: sessionGameStateInclude,
+  });
+}
+
 // Helper: fetch full game state for a session
 export async function getSessionGameState(
   db: PrismaClient,
   sessionId: string,
   playerId?: string,
+  preloadedSession?: SessionWithRelations,
 ) {
-  const session = await db.gameSession.findUniqueOrThrow({
-    where: { id: sessionId },
-    include: {
-      quiz: {
-        include: {
-          questions: {
-            include: { options: true },
-            orderBy: { order: "asc" },
-          },
-        },
-      },
-      players: {
-        orderBy: { score: "desc" },
-        select: {
-          id: true,
-          name: true,
-          class: true,
-          score: true,
-          lastActive: true,
-        },
-      },
-
-      currentQuestion: {
-        include: {
-          options: true,
-        },
-      },
-    },
-  });
+  const session =
+    preloadedSession ?? (await fetchSessionWithRelations(db, sessionId));
 
   let currentQuestion = null;
   let questionIndex = 0;
   const totalQuestions = session.quiz.questions.length;
-  let status = session.status;
+  const status = session.status;
   let effectiveStartTime = session.startTime?.toISOString() ?? null;
 
   // Simplified Logic: State is driven by explicit DB updates, not time
@@ -740,10 +753,15 @@ export const gameRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const player = await ctx.db.player.findUnique({
         where: { id: input.playerId },
-        select: { sessionId: true, lastActive: true },
+        include: {
+          session: {
+            include: sessionGameStateInclude,
+          },
+        },
       });
 
       if (!player) return null;
+      if (!player.session) return null;
 
       // Update lastActive on poll (Throttled to 30s)
       const now = new Date();
@@ -757,6 +775,11 @@ export const gameRouter = createTRPCRouter({
           .catch(() => {}); // Ignore errors
       }
 
-      return getSessionGameState(ctx.db, player.sessionId, input.playerId);
+      return getSessionGameState(
+        ctx.db,
+        player.sessionId,
+        input.playerId,
+        player.session as SessionWithRelations,
+      );
     }),
 });

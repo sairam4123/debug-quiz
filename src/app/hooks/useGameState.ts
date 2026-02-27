@@ -1,41 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api } from "@mce-quiz/trpc/react";
+import { api, type RouterOutputs } from "@mce-quiz/trpc/react";
 
-export type GameState = {
-  status: string | null;
-  currentQuestion: any;
-  questionStartTime: string | null;
-  timeLimit: number;
-  questionIndex: number;
-  totalQuestions: number;
-  today: boolean;
-  isHistory: boolean;
-  highestQuestionOrder: number;
-  serverTime?: string;
-  answerDistribution?: Record<string, number>;
-  correctAnswerId?: string;
-  leaderboard?: any[];
-  supportsIntermission?: boolean;
-  answersCount?: number;
-  antiTabSwitchEnabled?: boolean;
-};
+type GetGameStateOutput = RouterOutputs["game"]["getGameState"];
+type GameState = NonNullable<GetGameStateOutput>;
+type GameStatus = GameState["status"];
+type Question = GameState["currentQuestion"];
+type LeaderboardEntry = GameState["leaderboard"][number];
 
 export function useGameState(
   sessionId: string | null,
   playerId: string | null,
   onNewQuestion?: () => void,
 ) {
-  const [gameStatus, setGameStatus] = useState<
-    "WAITING" | "ACTIVE" | "INTERMISSION" | "ENDED" | null
-  >(null);
-  const [currentQuestion, setCurrentQuestion] = useState<any | null>(null);
+  const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [questionStartTime, setQuestionStartTime] = useState<string | null>(
     null,
   );
   const [timeLimit, setTimeLimit] = useState(10);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isHistory, setIsHistory] = useState(false);
   const [highestQuestionOrder, setHighestQuestionOrder] = useState(0);
   const [clockOffset, setClockOffset] = useState(0);
@@ -60,7 +45,7 @@ export function useGameState(
 
   const syncGameState = useCallback(
     (state: GameState) => {
-      setGameStatus(state.status as any);
+      setGameStatus(state.status);
       setLeaderboard(state.leaderboard ?? []);
 
       // Calculate Average Clock Offset
@@ -156,7 +141,7 @@ export function useGameState(
       const now = Date.now();
       const delay = POLL_INTERVAL - (now % POLL_INTERVAL);
       timerId = setTimeout(() => {
-        pollQuery.refetch();
+        void pollQuery.refetch();
         scheduleAlignedPoll();
       }, delay);
     };
@@ -175,14 +160,14 @@ export function useGameState(
       // syncGameState handles some deduping but better check here.
 
       // Simplest: Always sync if data arrives.
-      syncGameState(pollQuery.data as GameState);
+      syncGameState(pollQuery.data);
     }
   }, [pollQuery.data, syncGameState]);
 
   useEffect(() => {
     if (pollQuery.data && !firstLoadAfterJoin) {
       setFirstLoadAfterJoin(true);
-      syncGameState(pollQuery.data as GameState);
+      syncGameState(pollQuery.data);
     }
   }, [pollQuery.data, syncGameState, firstLoadAfterJoin]);
 
@@ -238,7 +223,7 @@ export function useGameState(
         if (!playerId) {
           syncGameStateRef.current(data);
         } else {
-          pollQueryRef.current.refetch();
+          void pollQueryRef.current.refetch();
         }
       });
 
